@@ -1,8 +1,8 @@
-# Wsp-Agent
+# Agent-Reservas
 
-Agente de WhatsApp con LLM + tool-calling, panel de operación y handoff a humano. Pensado como **proyecto de demostración** sobre Twilio + FastAPI + Next.js + Supabase: el usuario escribe por WhatsApp, el agente responde, extrae datos del cliente como **leads** y se ve todo en un panel web.
+Agente de **WhatsApp** orientado a **reservas y citas** (salud, belleza, consultorías, etc.): el cliente escribe por WhatsApp, el LLM consulta disponibilidad en **Google Calendar**, confirma o modifica citas en base de datos y sincroniza eventos. Incluye **panel de operación** (chats, agenda, ajustes) y **escalamiento a humano** cuando hace falta.
 
-[![CI](https://github.com/wasyra/Wsp-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wasyra/Wsp-Agent/actions/workflows/ci.yml)
+[![CI](https://github.com/wasyra/Agent-Reservas/actions/workflows/ci.yml/badge.svg)](https://github.com/wasyra/Agent-Reservas/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi)
@@ -12,27 +12,27 @@ Agente de WhatsApp con LLM + tool-calling, panel de operación y handoff a human
 
 ## ¿Qué es esto?
 
-Un negocio en LATAM conecta su WhatsApp (Twilio) a este agente. Cuando un cliente escribe, el agente:
+Un negocio en LATAM conecta su **WhatsApp (Twilio)** a este agente. Cuando un cliente escribe, el flujo típico es:
 
-1. Recibe el mensaje vía webhook Twilio, guarda la conversación y valida la firma HMAC.
-2. Lee el contexto del negocio (catálogo, precios, FAQ, reglas) configurado en el panel.
-3. Llama a un LLM (Gemini o OpenAI) con **3 tools** disponibles para acciones reales.
-4. Persiste el lead, actualiza el panel y responde por WhatsApp con TwiML.
-5. Si pide hablar con una persona, marca handoff y queda visible para el operador humano.
+1. Twilio envía el mensaje al webhook; la API valida firma HMAC (opcional), aplica rate limit y deduplica por `MessageSid`.
+2. Se carga la configuración del negocio (horarios, servicios con duración, zona horaria, tono, FAQ) desde **Supabase**.
+3. Un LLM (**Gemini** u **OpenAI**, elegible en el panel) ejecuta **tool calling** con hasta **8 iteraciones** para consultar huecos, reservar, listar, cancelar o reprogramar citas, y escalar a humano si corresponde.
+4. Las citas confirmadas se guardan en Postgres y, si configuraste Google, se crean o actualizan eventos en **Google Calendar**.
+5. La respuesta vuelve por **TwiML** a WhatsApp; el operador ve conversaciones y citas en el panel web.
 
-El frontend Next.js es un **panel de operación**: lista de chats, detalle de cada conversación, leads capturados, configuración (Twilio, LLM, catálogo) y estado del despliegue.
+El frontend **Next.js** es el panel interno: inbox de chats, vista **Citas** con filtros y exportación, **Ajustes** (Twilio, LLM, Google Calendar, horarios, servicios, menú de bienvenida) y **Estado** del despliegue.
 
 ## ¿Qué demuestra?
 
-- **Tool calling** real con tres herramientas tipadas (`save_lead`, `get_lead_by_phone`, `request_human_handoff`) y loop con tope de 6 iteraciones.
-- **Multi-proveedor LLM**: alterna Gemini ↔ OpenAI desde el panel sin tocar código ni reiniciar.
-- **Idempotencia**: deduplicación por `MessageSid` de Twilio para sobrevivir reintentos.
-- **Validación criptográfica**: verificación de `X-Twilio-Signature` antes de procesar (configurable por entorno).
-- **Rate limiting** del webhook (120 req/min por IP, con backend Redis opcional para multi-réplica).
-- **Observabilidad**: logs estructurados JSON con `request_id`, métricas Prometheus, healthchecks `liveness`/`readiness`.
-- **Migraciones idempotentes** Alembic ejecutadas al arrancar la API.
-- **Panel sin código**: configurar secretos, catálogo (CSV/Excel parseado a líneas) y reglas desde la UI.
-- **Redacción de secretos en logs**: filtro que tacha `sk-*`, `AIza*`, Twilio tokens y `Bearer *` antes de escribir.
+- **Agenda real**: huecos calculados cruzando ocupación de Calendar + citas ya guardadas en BD.
+- **Tool calling** tipado: `get_available_slots`, `book_appointment`, `list_my_appointments`, `cancel_appointment`, `reschedule_appointment`, `request_human_handoff`.
+- **Multi-proveedor LLM** sin reiniciar: Gemini ↔ OpenAI desde el panel.
+- **Idempotencia** en el webhook por `MessageSid` (reintentos de Twilio).
+- **Validación de firma** Twilio (`X-Twilio-Signature`), configurable por entorno.
+- **Rate limiting** del webhook (120 req/min por IP; Redis opcional para varias réplicas).
+- **Observabilidad**: logs JSON con `request_id`, métricas Prometheus, `/health` y `/health/ready`.
+- **Migraciones Alembic** al arrancar la API.
+- **Redacción de secretos** en logs (`sk-*`, `AIza*`, tokens Twilio, `Bearer *`).
 
 ## Arquitectura
 
@@ -44,9 +44,9 @@ WhatsApp (cliente)
    ┌──────────────────────────┐
    │   FastAPI (apps/api)     │
    │   • valida firma         │
-   │   • orquestador          │
-   │   • agente LLM + tools   │── Gemini / OpenAI
-   │   • rate-limit + métricas│
+   │   • orquestador + agente │
+   │   • tools de reservas    │── Gemini / OpenAI
+   │   • Google Calendar API  │
    └────────┬─────────────────┘
             │ SQLAlchemy async
             ▼
@@ -54,89 +54,68 @@ WhatsApp (cliente)
             ▲
             │ REST /internal/* (X-API-Key)
    ┌────────┴────────┐
-   │  Next.js panel  │   ← operador humano
+   │  Next.js panel  │
    │  (apps/web)     │
    └─────────────────┘
 ```
 
-Diagrama y diseño completo en [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md).
+Diseño detallado y contexto histórico en [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md).
 
 ---
 
 ## Demo en 5 minutos
 
-### Prerequisitos comunes
+### Prerrequisitos
 
-- Docker Desktop (o Node 20+ y Python 3.12+ si lo corres en bare metal).
-- Un proyecto [Supabase](https://supabase.com/dashboard) (Free tier sobra).
-- **Una clave** de Gemini ([Google AI Studio](https://aistudio.google.com/app/apikey)) **o** de OpenAI. Para Gemini-only la demo es gratis.
+- Docker Desktop (o Node 20+ y Python 3.12+ en bare metal).
+- Proyecto [Supabase](https://supabase.com/dashboard) (Free tier suele bastar).
+- Clave **Gemini** o **OpenAI** para el agente.
+- Para probar agenda de verdad: cuenta de servicio de Google con acceso al calendario del negocio (también se puede pegar JSON e ID de calendario en **Ajustes** del panel).
 
-### Opción A — Solo el panel, sin WhatsApp real (1 minuto)
+### Opción A — Panel + API, sin WhatsApp real
 
-Ideal para evaluar la UI y el modelo de datos sin tocar Twilio.
-
-```bash
-cp .env.example .env
+```powershell
+copy .env.example .env
 # Edita .env: DATABASE_URL obligatorio (Supabase → Connect → Session pooler).
-# Pega tal cual la URI del panel; la API añade +asyncpg, limpia `pgbouncer=true` y desactiva
-# prepared statements si usas el Transaction Pooler (puerto 6543).
 docker compose up --build
 ```
 
-Compose ya **no** incluye Postgres local: la API y Alembic usan solo tu proyecto Supabase.
+Compose usa **solo Supabase** como base de datos (no levanta Postgres local).
 
 #### Errores comunes al arrancar la API
 
 | Síntoma en `docker compose logs api` | Causa | Solución |
-|---|---|---|
-| `password authentication failed for user "postgres"` | Contraseña incorrecta o sin URL-encode | Regenera la password en el panel de Supabase y URL-encode los caracteres especiales (`@→%40`, `*→%2A`, `$→%24`, `#→%23`, `&→%26`). |
-| `invalid URI query parameter: "prepare_threshold"` | Versión vieja del código | Reconstruye la imagen: `docker compose build api --no-cache`. |
-| Cuelga >2 min sin error | Red Docker→Supabase bloqueada o proyecto Supabase pausado | Reactiva el proyecto y comprueba salida TCP `:5432` o `:6543`. El timeout interno aborta a los 180s. |
-| `Transaction Pooler de Supabase (puerto 6543)` warning | Estás usando el pooler de transacciones | Funciona, pero para Alembic se recomienda Session Pooler (puerto 5432). |
+|--------|--------|----------|
+| `password authentication failed for user "postgres"` | Contraseña o URL mal codificada | Regenera password en Supabase y URL-encode (`@→%40`, `*→%2A`, `$→%24`, etc.). |
+| `invalid URI query parameter: "prepare_threshold"` | Imagen antigua | `docker compose build api --no-cache`. |
+| Cuelga mucho sin error | Proyecto pausado o red bloqueada | Reactiva el proyecto; comprueba puertos 5432/6543. |
+| Warning del Transaction Pooler (6543) | Pooler de transacciones | Funciona; para migraciones a veces conviene Session pooler (5432). |
 
-Abre `http://localhost:3000`. Verás el panel vacío. Ve a **Configuración** y pega tu clave Gemini u OpenAI; el catálogo y las reglas las puedes pegar como texto plano o subir un CSV/Excel.
+Abre `http://localhost:3000` (redirige a `/chats`). En **Ajustes** configura LLM, Twilio cuando lo tengas y, si quieres huecos reales, **Google Calendar**.
 
-Para simular una conversación sin Twilio, inserta filas directamente en Supabase (`conversations`, `messages`) o llama al endpoint interno (ver [API interna](#api-interna-panel-next)).
+### Túnel HTTPS (Twilio)
 
-### Túnel HTTPS (Twilio / pruebas desde internet)
+La URL del webhook debe ser **HTTPS** y **pública**:
 
-La API del webhook debe ser **HTTPS** y **pública**. Tienes tres formas:
-
-1. **Docker (recomendado, sin instalar ngrok/cloudflared en Windows)**  
-   Con la pila ya levantada (`docker compose up -d`):
+1. **Docker (recomendado en Windows)** con la pila arriba:
    ```powershell
    .\dev-tunnel.ps1 -Docker
    ```
-   El script arranca el túnel en **segundo plano** y vuelve a imprimir la URL `https://….trycloudflare.com` en grande (a veces los logs de Docker se quedan “mudos” después de conectar; es normal).  
-   - Ver tráfico: `docker compose logs -f tunnel`  
-   - Parar: `docker compose --profile tunnel stop tunnel`  
-   Si prefieres **adjuntar** la consola al contenedor como antes: `.\dev-tunnel.ps1 -Docker -Attach`  
-   O manualmente: `docker compose --profile tunnel up tunnel` (la URL sale en el recuadro ASCII de los logs).
+   Logs: `docker compose logs -f tunnel`. Parar: `docker compose --profile tunnel stop tunnel`.
 
-2. **Cloudflare `cloudflared` en el PC** (apunta a `localhost:8000` donde Docker publica la API):
-   ```powershell
-   winget install --id Cloudflare.cloudflared
-   cloudflared tunnel --url http://127.0.0.1:8000
-   ```
-   O: `.\dev-tunnel.ps1` (detecta `cloudflared` en el PATH).
+2. **cloudflared** en el PC hacia `http://127.0.0.1:8000`, o `.\dev-tunnel.ps1` si está en el PATH.
 
-3. **ngrok**  
-   ```bash
-   ngrok http 8000
-   ```
+3. **ngrok**: `ngrok http 8000`.
 
-### Opción B — End-to-end con Twilio Sandbox (5 minutos)
+### Opción B — WhatsApp Sandbox (Twilio)
 
-1. Replica los pasos de la opción A.
-2. Crea una cuenta Twilio, activa el **WhatsApp Sandbox** y anota el código de unión.
-3. Levanta un túnel HTTPS hacia `localhost:8000` (ver sección **Túnel HTTPS** arriba; con Docker: `.\dev-tunnel.ps1 -Docker`).
-4. En el panel `http://localhost:3000/configuracion`:
-   - Pega tu **Account SID** y **Auth Token** de Twilio.
-   - Pega la URL pública del túnel en **WEBHOOK_BASE_URL** (ej. `https://abc123.ngrok.app`).
-   - Copia la URL completa del webhook (la genera el panel) y pégala en Twilio → Sandbox → *When a message comes in*.
-5. Únete al sandbox desde tu WhatsApp con el código de Twilio y mándale un mensaje. Se verá en `http://localhost:3000/chats`.
+1. Misma base que la opción A.
+2. Cuenta Twilio + **WhatsApp Sandbox** y código de unión.
+3. Túnel hacia `localhost:8000`.
+4. En **Ajustes** (`/configuracion`): Account SID, Auth Token, `WEBHOOK_BASE_URL` del túnel; copia la URL del webhook al sandbox de Twilio.
+5. Únete al sandbox y envía un mensaje; verás la conversación en `/chats`.
 
-> La firma HMAC sale por defecto en **false** para arranque rápido. Para producción ponla en `true` y asegúrate que `WEBHOOK_BASE_URL` coincida exactamente con la URL que Twilio llama (esquema, host y path).
+En producción activa `TWILIO_VALIDATE_SIGNATURE=true` y asegúrate de que `WEBHOOK_BASE_URL` coincida **exactamente** con la URL que llama Twilio.
 
 ---
 
@@ -144,43 +123,49 @@ La API del webhook debe ser **HTTPS** y **pública**. Tienes tres formas:
 
 | Ruta | Función |
 |------|---------|
-| `/` | Landing del panel. |
-| `/chats` | Lista de conversaciones recientes, búsqueda y filtros. |
-| `/chats/[id]` | Timeline de mensajes, notas internas, tags, lead asociado, botón **Escalar a humano** y resolver handoff. |
+| `/` | Redirige a `/chats`. |
+| `/chats`, `/chats/[id]` | Inbox, detalle, notas, tags, handoff. |
+| `/citas` | Citas confirmadas/canceladas, filtros, exportación. |
+| `/leads` | Redirige a `/citas` (el producto actual es agendamiento). |
 | `/conversations`, `/conversations/[id]` | Vista alternativa de conversación. |
-| `/leads` | Leads capturados con sus campos estructurados y `qualification` JSONB. Exportable. |
-| `/configuracion` | Secretos Twilio/LLM, selector de proveedor (OpenAI / Gemini), modelo, catálogo (CSV/Excel → líneas), reglas, FAQ, tono. |
-| `/estado` | Versión de API, `GIT_COMMIT` del despliegue, salud de DB, status de Redis. |
+| `/configuracion` | Twilio, LLM, webhook, Google Calendar, horario semanal, servicios, menú de bienvenida, personalidad del agente. |
+| `/estado` | Versión API, `GIT_COMMIT`, salud de DB y Redis. |
 
-## Lo que hace el agente (tools)
+---
 
-| Tool | Tipo | Para qué |
-|------|------|----------|
-| `save_lead` | Escritura | Upsert del lead asociado a la conversación: nombre, email, teléfono (E.164), empresa, ciudad, producto, presupuesto, notas, score. Cada llamada hace merge no destructivo con `qualification` JSONB. |
-| `get_lead_by_phone` | Lectura | Busca lead por teléfono normalizado para no repetir preguntas al cliente que vuelve. |
-| `request_human_handoff` | Escritura | Marca la conversación como `handed_off`, crea fila en `handoffs` con razón. El panel lo muestra en rojo. |
+## Herramientas del agente (LLM)
 
-El system prompt está armado en `apps/api/app/agent/tool_handlers.py::build_system_prompt` y se compone dinámicamente desde la configuración del panel (negocio, catálogo, precios, envíos, pagos, devoluciones, FAQ, tono, off-hours, datos a capturar).
+| Tool | Rol |
+|------|-----|
+| `get_available_slots` | Huecos libres para un día (Calendar + citas en BD); respeta servicios y duraciones del panel. |
+| `book_appointment` | Crea cita y evento en Google si aplica; exige `service_label` si hay lista de servicios estructurada. |
+| `list_my_appointments` | Lista citas del cliente (teléfono de la conversación). |
+| `cancel_appointment` | Cancela por UUID de cita. |
+| `reschedule_appointment` | Mueve una cita a nuevo inicio/fin ISO. |
+| `request_human_handoff` | Marca escalamiento a operador humano. |
+
+El system prompt se arma en `apps/api/app/agent/tool_handlers.py` a partir de la configuración efectiva (`EffectiveSettings` + `booking_config`).
 
 ## API interna (panel Next)
 
-Todas las rutas `/internal/*` requieren header `X-API-Key: $INTERNAL_API_KEY` (o `Authorization: Bearer …`). Next.js las consume desde el servidor con `BACKEND_URL` para no exponer la key al navegador.
+Rutas `/internal/*` con header `X-API-Key: $INTERNAL_API_KEY` (o `Authorization: Bearer …`). Next.js reenvía desde `app/api/internal/*` con `BACKEND_URL`.
 
-| Método | Ruta | |
-|--------|------|---|
-| `GET` | `/internal/status` | Versión, commit, salud DB, Redis. |
-| `GET` | `/internal/conversations` | Lista paginada de conversaciones. |
-| `GET` | `/internal/conversations/{id}` | Detalle + mensajes. |
-| `PATCH` | `/internal/conversations/{id}/panel` | Notas internas, tags. |
-| `POST` | `/internal/conversations/{id}/handoff` | Marcar escalamiento. |
-| `POST` | `/internal/conversations/{id}/handoff/resolve` | Reabrir conversación. |
-| `GET` | `/internal/leads` | Lista de leads. |
-| `GET, PUT` | `/internal/settings` | Configuración del workspace. |
-| `POST` | `/internal/settings/agent-catalog/parse` | Parsea CSV/Excel → líneas para el catálogo. |
-| `POST` | `/webhooks/twilio/whatsapp` | **Público**, valida firma Twilio, rate-limit 120/min. |
+| Método | Ruta | Notas |
+|--------|------|--------|
+| `GET` | `/internal/status` | Versión, commit, DB, Redis. |
+| `GET` | `/internal/conversations` | Lista paginada. |
+| `GET` | `/internal/conversations/{id}` | Mensajes, lead legacy si existe, **citas** asociadas. |
+| `PATCH` | `/internal/conversations/{id}/panel` | Notas y tags. |
+| `POST` | `/internal/conversations/{id}/handoff` | Escalar. |
+| `POST` | `/internal/conversations/{id}/handoff/resolve` | Reabrir. |
+| `GET` | `/internal/leads` | API legacy; la UI de leads redirige a citas. |
+| `GET` | `/internal/appointments` | Lista de citas con filtros opcionales. |
+| `GET`, `PUT` | `/internal/settings` | Configuración del workspace. |
+| `POST` | `/internal/settings/agent-catalog/parse` | CSV/Excel → líneas de catálogo. |
+| `POST` | `/webhooks/twilio/whatsapp` | Público; rate limit 120/min. |
 | `GET` | `/health`, `/health/ready`, `/metrics` | Liveness, readiness, Prometheus. |
 
-OpenAPI completo: `http://localhost:8000/docs` cuando la API corre.
+OpenAPI en vivo: `http://localhost:8000/docs` con la API levantada.
 
 ---
 
@@ -188,39 +173,25 @@ OpenAPI completo: `http://localhost:8000/docs` cuando la API corre.
 
 | Capa | Tecnología |
 |------|------------|
-| API | FastAPI, SQLAlchemy 2 async, asyncpg, slowapi (rate limit), prometheus-client |
-| Migraciones | Alembic + `init_db()` en startup |
-| Agente | `google-genai` (Gemini), `openai` (AsyncOpenAI), loop tool-calling con max 6 iteraciones, retry exponencial para cuotas |
-| Datos | Supabase (Postgres 16) — Session pooler con TLS automático |
-| Cola opcional | Redis (slowapi storage compartido entre réplicas) |
-| Frontend | Next.js 15 (App Router), Tailwind, BFF en `app/api/internal/*` |
-| Mensajería | Twilio WhatsApp Sandbox (dev) / Business API (prod) |
-| CI | GitHub Actions (`api` Postgres 16 + Ruff + pytest, `web` ESLint + build), Dependabot pip/npm/Actions |
-| Hooks | pre-commit con Ruff |
+| API | FastAPI, SQLAlchemy 2 async, asyncpg, slowapi, prometheus-client |
+| Migraciones | Alembic + init en startup |
+| Agente | `google-genai`, `openai`, loop tool-calling (máx. 8 iteraciones), reintentos ante cuotas |
+| Calendario | Google Calendar API vía cuenta de servicio (`app/integrations/google_calendar.py`) |
+| Datos | Supabase Postgres |
+| Cola opcional | Redis para rate limit compartido |
+| Frontend | Next.js 15 (App Router), Tailwind, BFF `app/api/internal/*` |
+| Mensajería | Twilio WhatsApp (sandbox o producción) |
+| CI | GitHub Actions: API (Postgres 16 + Ruff + pytest), web (ESLint + build) |
 
 ---
 
-## Limitaciones (es un demo)
+## Limitaciones (alcance actual)
 
-Estas son **decisiones explícitas** para mantener el demo simple y barato. Para pilot / producción ver la sección siguiente.
-
-- **Single-tenant**: cualquier holder de `INTERNAL_API_KEY` lee todas las conversaciones y leads. No hay scoping por `workspace_id`. Ver docstring en `apps/api/app/deps.py::verify_internal_api_key`.
-- **Secretos en texto plano** dentro de Supabase para los que se guardan desde el panel (Twilio Token, OpenAI/Gemini key). Cómodo para dev; **no** para producción.
-- **TwiML síncrono**: la respuesta se envía dentro del mismo ciclo del webhook. Si el LLM tarda >10–15 s Twilio puede agotar el timeout. Sin cola async, sin worker.
-- **Sin timeout explícito** en las llamadas al LLM (sólo retry para cuotas).
-- **Tests solo unitarios** con mocks; CI no levanta el orquestador completo contra una DB real.
-- **CORS permisivo**: `allow_methods=["*"]`, `allow_headers=["*"]` en `apps/api/app/main.py`.
-- **Sin redacción de payload Twilio**: el JSON crudo del webhook se almacena en `messages.raw_payload`; útil para debugging, pero ten en cuenta que contiene el cuerpo del mensaje del cliente.
-
-## De demo a pilot a producción
-
-| Etapa | Estado | Qué falta |
-|-------|--------|-----------|
-| **Demo** | Listo | (este README, CI verde, Gemini-only o sandbox Twilio) |
-| **Pilot interno** | ~50% | Migrar secretos del panel a vault, escribir tests de integración con DB real, decidir TwiML sync vs cola async, agregar `asyncio.timeout()` a las llamadas LLM. |
-| **Producción multi-tenant** | ~25% | `workspace_id` en BD + emisión de keys por workspace, scoping en `/internal/*`, CORS estricto, monitoreo de costos LLM, backups DB, rotación de keys, observabilidad de tracing distribuido, runbooks. **Backlog detallado en [`TODO_PRODUCTION.md`](./TODO_PRODUCTION.md)**. |
-
-Cierre del audit completo en [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md) sección 12 (Riesgos) y 13 (Criterios de listo para demo). Roadmap de hardening en [`TODO_PRODUCTION.md`](./TODO_PRODUCTION.md).
+- **Single-tenant**: quien tenga `INTERNAL_API_KEY` ve todo el workspace; no hay `workspace_id` en rutas internas.
+- **Secretos en panel/BD** para desarrollo ágil; no sustituyen un vault en producción.
+- **TwiML síncrono**: si el LLM + Calendar tardan demasiado, Twilio puede cortar por timeout (sin cola async en este demo).
+- **Tests** mayormente unitarios con mocks; CI no ejecuta el stack completo contra Calendar real.
+- Ver riesgos y backlog en [`TODO_PRODUCTION.md`](./TODO_PRODUCTION.md) y [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md).
 
 ---
 
@@ -229,118 +200,72 @@ Cierre del audit completo en [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md
 ```
 .
 ├── apps/
-│   ├── api/                    FastAPI + agente + migraciones
+│   ├── api/                 FastAPI, webhooks, agente, migraciones
 │   │   ├── app/
-│   │   │   ├── agent/          gemini_agent, tool_handlers, system prompt
-│   │   │   ├── routers/        internal.py, workspace_settings.py
-│   │   │   ├── webhooks/       twilio_whatsapp.py
-│   │   │   ├── services/       orchestrator, conversation, effective_settings
-│   │   │   ├── models/         SQLAlchemy: Conversation, Message, Lead, Handoff, ToolInvocation
-│   │   │   ├── middleware/     correlation_id (X-Request-ID)
-│   │   │   ├── logging_setup.py   incluye SecretRedactionFilter
-│   │   │   ├── deps.py         verify_internal_api_key
-│   │   │   ├── metrics.py      Prometheus
-│   │   │   └── main.py
-│   │   ├── migrations/         Alembic
-│   │   ├── tests/              pytest unitarios
-│   │   ├── scripts/            check_db, export_openapi
-│   │   └── pyproject.toml
-│   └── web/                    Next.js 15 App Router, Tailwind
-│       └── src/app/
-│           ├── chats/          conversaciones, detalle
-│           ├── leads/
-│           ├── configuracion/
-│           ├── estado/
-│           └── api/internal/   BFF que reenvía a FastAPI con la key
-├── supabase/migrations/        Alternativa SQL plano si no quieres Alembic
-├── docker-compose.yml          api, web, redis (sin Postgres; DB = Supabase)
-├── .env.example                root (Compose)
-├── .pre-commit-config.yaml     Ruff
-└── PLAN_WHATSAPP_AGENT.md      Diseño y fases
+│   │   │   ├── agent/       gemini_agent, tool_handlers, prompt de reservas
+│   │   │   ├── integrations/google_calendar.py
+│   │   │   ├── routers/     internal, workspace_settings
+│   │   │   ├── webhooks/    twilio_whatsapp.py
+│   │   │   ├── services/    orchestrator, booking_config, effective_settings
+│   │   │   └── models/      Conversation, Message, Appointment, Handoff, …
+│   │   ├── migrations/      Alembic (incl. citas y settings de booking)
+│   │   └── tests/
+│   └── web/                 Next.js — chats, citas, configuracion, estado
+├── supabase/migrations/     SQL alternativo
+├── docker-compose.yml
+├── .env.example
+└── PLAN_WHATSAPP_AGENT.md
 ```
 
-## Reference: configuración detallada
+---
 
-### Variables de entorno
+## Variables de entorno (resumen)
 
-| Ámbito | Variable | Default | Notas |
-|--------|----------|---------|-------|
-| Root / Compose | `DATABASE_URL` | **obligatorio en `.env`** | Supabase Session pooler; Compose usa `env_file: .env` para no trocear la URL. |
-| Root | `INTERNAL_API_KEY` | `dev-internal-key` | Cambiala. La usa el panel y `/internal/*`. |
-| API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | _vacío_ | Si las dejas vacías y las pegas en el panel, las del panel ganan. |
-| API | `TWILIO_VALIDATE_SIGNATURE` | `false` | **Pon `true` en producción**. |
-| API | `WEBHOOK_BASE_URL` | `http://localhost:8000` | Debe coincidir exactamente con la URL que Twilio llama (para HMAC). |
-| API | `OPENAI_API_KEY` | _vacío_ | Opcional, el panel la sobreescribe. |
-| API | `REDIS_URL` | `redis://redis:6379/0` | Vacío = rate limit en memoria del proceso. |
-| API | `LOG_JSON` | `false` | `true` para agregadores. |
-| API | `LOG_LEVEL` | `INFO` | |
-| API | `GIT_COMMIT` | `local` | Inyectado por CI/CD para mostrar en `/estado`. |
-| API | `CORS_ORIGINS` | `http://localhost:3000` | Lista separada por coma. |
-| Web | `BACKEND_URL` | `http://api:8000` | Server-side fetch. |
-| Web | `INTERNAL_API_KEY` | igual que API | Para que `/api/internal/*` reenvíe. |
-
-### Modelo de seguridad: single-tenant
-
-`/internal/*` está pensado para **un único panel detrás del shared secret**. Quien presente la `INTERNAL_API_KEY` válida lee **todas** las conversaciones, mensajes, leads y handoffs del despliegue — no hay filtro por `workspace_id`/`tenant_id` en las rutas internas (ver `apps/api/app/deps.py::verify_internal_api_key`).
-
-Implicaciones:
-
-- **Aceptable** para un pilot interno donde el Next.js es el único consumidor.
-- **NO** compartas `INTERNAL_API_KEY` con clientes externos ni la incluyas en JS de navegador.
-- Para multi-tenant: modelar `workspace_id` en BD, emitir keys por workspace y filtrar en `apps/api/app/routers/internal.py`.
+| Ámbito | Variable | Notas |
+|--------|----------|--------|
+| Raíz / Compose | `DATABASE_URL` | Obligatorio; Session pooler Supabase. |
+| Raíz | `INTERNAL_API_KEY` | Compartida API + BFF Next; cámbiala. |
+| API | `TWILIO_*`, `WEBHOOK_BASE_URL` | Sandbox o prod; firma con `TWILIO_VALIDATE_SIGNATURE`. |
+| API | `OPENAI_API_KEY` / `GEMINI_API_KEY` | También editables en el panel. |
+| API | `GOOGLE_CALENDAR_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` | Opcional en `.env`; suele bastar configurarlas en **Ajustes**. |
+| API | `REDIS_URL` | Vacío = rate limit en memoria. |
+| Web | `BACKEND_URL`, `INTERNAL_API_KEY` | Ver `apps/web/.env.example` para desarrollo local. |
 
 ### Arranque sin Docker
 
 ```bash
 # API
 cd apps/api
-python3.12 -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-DATABASE_URL=postgresql+asyncpg://... INTERNAL_API_KEY=dev-internal-key \
-  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+export DATABASE_URL=postgresql+asyncpg://...   # misma URI que en Compose
+export INTERNAL_API_KEY=dev-internal-key
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Web (en otra terminal)
+# Web (otra terminal)
 cd apps/web
 cp .env.example .env.local && npm install
-BACKEND_URL=http://localhost:8000 INTERNAL_API_KEY=dev-internal-key npm run dev
+# En .env.local: BACKEND_URL=http://127.0.0.1:8000 e INTERNAL_API_KEY igual que la API
+npm run dev
 ```
 
-### CI
+### Tipos TypeScript desde OpenAPI
 
-`.github/workflows/ci.yml` corre en push y PR a `main`:
-
-- **api**: Postgres 16 service, `pip install ".[dev]"`, `ruff check .`, `pytest -q` con `DATABASE_URL` y `INTERNAL_API_KEY` de prueba.
-- **web**: `npm ci`, `npm run lint`, `npm run build`.
-
-Para correr la suite de la API en local: necesitas una DB accesible y `INTERNAL_API_KEY` coherente con tu `.env`. Ver `apps/api/tests/conftest.py`.
-
-### Observabilidad
-
-- **Logs**: `LOG_JSON=true` para una línea JSON por evento; cada record incluye `request_id`. El filtro `SecretRedactionFilter` tacha `sk-*`, `AIza*`, Twilio tokens y `Bearer *` antes de salir.
-- **Métricas**: `GET /metrics` (Prometheus). Restringe acceso en producción.
-- **Trazas**: `X-Request-ID` (o `X-Correlation-ID`) ida y vuelta entre Next.js BFF y FastAPI.
-- **Health**: `/health` (liveness ligero), `/health/ready` (verifica `SELECT 1` y devuelve 503 si la base no responde).
-
-### Generación de tipos TypeScript desde OpenAPI
-
-Después de cambiar la API:
-
-```bash
-cd apps/api && python scripts/export_openapi.py
-cd ../web && npm run gen:api-types
+```powershell
+cd apps/api; python scripts/export_openapi.py
+cd ..\web; npm run gen:api-types
 ```
 
-Genera `apps/web/src/lib/api-v1.d.ts` desde `apps/api/openapi.json`.
+Genera `apps/web/src/lib/api-v1.d.ts`.
 
 ---
 
 ## Documentación adicional
 
-- [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md) — diseño completo, fases, decisiones.
-- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) — pipeline CI.
-- [`.github/dependabot.yml`](./.github/dependabot.yml) — actualizaciones automáticas pip/npm/Actions.
+- [`PLAN_WHATSAPP_AGENT.md`](./PLAN_WHATSAPP_AGENT.md) — diseño y fases.
+- [`TODO_PRODUCTION.md`](./TODO_PRODUCTION.md) — hardening y multi-tenant.
+- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) — CI.
 
 ## Licencia
 
-Proyecto de demostración / aprendizaje — añade la licencia que prefieras.
-# Agent-Reservas
+Proyecto de demostración / producto interno — añade la licencia que corresponda.
