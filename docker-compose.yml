@@ -1,0 +1,57 @@
+# API + Redis + panel. Crea `.env` en la raíz (copia de .env.example) con DATABASE_URL de Supabase.
+# `env_file` evita que Docker Compose interprete `$` u otros caracteres dentro de la contraseña de la URL.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-local}
+    env_file:
+      - .env
+    environment:
+      # Dentro de Docker la API debe hablar con el contenedor `redis`, no con localhost.
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Para que el panel Next distinga “contenedor” vs `next dev` en el host (ver apps/web/src/lib/env.ts).
+      RUNNING_IN_DOCKER: "1"
+      BACKEND_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  # Túnel HTTPS público → API (Twilio webhook). Opcional: no arranca salvo perfil `tunnel`.
+  # Uso: docker compose --profile tunnel up tunnel
+  # La URL aparece en logs (línea trycloudflare.com). Cópiala a WEBHOOK_BASE_URL en /configuracion.
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  redis-data:

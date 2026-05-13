@@ -1,0 +1,20 @@
+# Root
+.env
+.env.local
+*.pem
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+node_modules/
+.next/
+out/
+.vercel
+*.log

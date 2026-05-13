@@ -1,0 +1,7 @@
+node_modules
+.next
+.git
+# No copiar .env al build: Next podría fijar BACKEND_URL en el bundle; Compose lo inyecta al arrancar.
+.env
+.env.*
+!.env.example
