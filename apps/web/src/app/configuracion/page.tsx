@@ -64,6 +64,11 @@ export default function ConfiguracionPage() {
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(30);
   const [bufferMin, setBufferMin] = useState(0);
   const [requiresIdDocument, setRequiresIdDocument] = useState(false);
+  const [requireAppointmentConfirmation, setRequireAppointmentConfirmation] = useState(true);
+  const [agentResponseLanguage, setAgentResponseLanguage] = useState("es");
+  const [agentToneStyle, setAgentToneStyle] = useState("professional");
+  const [reminderHoursBefore, setReminderHoursBefore] = useState(24);
+  const [reminderMessageTemplate, setReminderMessageTemplate] = useState("");
 
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [catalogImportMode, setCatalogImportMode] = useState<"append" | "replace">("append");
@@ -112,13 +117,20 @@ export default function ConfiguracionPage() {
     setMaxAdvanceDays(j.max_advance_days ?? 30);
     setBufferMin(j.buffer_between_appointments_minutes ?? 0);
     setRequiresIdDocument(Boolean(j.requires_id_document));
+    setRequireAppointmentConfirmation(Boolean(j.require_appointment_confirmation ?? true));
+    setAgentResponseLanguage((j.agent_response_language || "es").slice(0, 16));
+    setAgentToneStyle((j.agent_tone_style || "professional").slice(0, 32));
+    setReminderHoursBefore(j.reminder_hours_before ?? 24);
+    setReminderMessageTemplate(j.reminder_message_template ?? "");
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/internal/settings", { cache: "no-store" });
+      const res = await fetch("/api/internal/settings", {
+        cache: "no-store",
+      });
       if (!res.ok) {
         throw new Error(await res.text());
       }
@@ -252,6 +264,11 @@ export default function ConfiguracionPage() {
         max_advance_days: maxAdvanceDays,
         buffer_between_appointments_minutes: bufferMin,
         requires_id_document: requiresIdDocument,
+        require_appointment_confirmation: requireAppointmentConfirmation,
+        agent_response_language: agentResponseLanguage,
+        agent_tone_style: agentToneStyle,
+        reminder_hours_before: reminderHoursBefore,
+        reminder_message_template: reminderMessageTemplate,
       };
       if (twilioToken.trim()) payload.twilio_auth_token = twilioToken.trim();
       if (openaiKey.trim()) payload.openai_api_key = openaiKey.trim();
@@ -391,6 +408,73 @@ export default function ConfiguracionPage() {
                     onGeminiModel={setGeminiModel}
                     data={data}
                   />
+                  <section className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
+                    <h2 className="text-lg font-semibold text-[var(--wa-text)]">Canal y recordatorios</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--wa-text-muted)]">
+                      Confirmación en dos pasos, idioma/tono homogéneos (incluidos mensajes de error al usuario) y
+                      recordatorios automáticos por WhatsApp según la plantilla.
+                    </p>
+                    <div className="mt-6 space-y-4">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--wa-text)]">
+                        <input
+                          type="checkbox"
+                          checked={requireAppointmentConfirmation}
+                          onChange={(e) => setRequireAppointmentConfirmation(e.target.checked)}
+                          className="h-4 w-4 accent-[var(--wa-accent)]"
+                        />
+                        Exigir confirmación explícita del cliente (&quot;¿Confirmas el martes 10:00?&quot;) antes de
+                        cerrar la cita
+                      </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="flex flex-col gap-1 text-sm">
+                          <span className="text-[var(--wa-text-muted)]">Idioma principal del agente</span>
+                          <select
+                            value={agentResponseLanguage}
+                            onChange={(e) => setAgentResponseLanguage(e.target.value)}
+                            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                          >
+                            <option value="es">Español</option>
+                            <option value="en">Inglés</option>
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1 text-sm">
+                          <span className="text-[var(--wa-text-muted)]">Tono</span>
+                          <select
+                            value={agentToneStyle}
+                            onChange={(e) => setAgentToneStyle(e.target.value)}
+                            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                          >
+                            <option value="professional">Profesional / ejecutivo</option>
+                            <option value="formal">Formal</option>
+                            <option value="warm">Cercano</option>
+                          </select>
+                        </label>
+                      </div>
+                      <label className="flex flex-col gap-1 text-sm">
+                        <span className="text-[var(--wa-text-muted)]">Horas antes del inicio para el recordatorio</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={336}
+                          value={reminderHoursBefore}
+                          onChange={(e) => setReminderHoursBefore(Number(e.target.value))}
+                          className="w-full max-w-xs rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-sm">
+                        <span className="text-[var(--wa-text-muted)]">
+                          Plantilla de recordatorio (variables: {"{client_name}"}, {"{service_label}"},{" "}
+                          {"{start_local}"}, {"{business_name}"})
+                        </span>
+                        <textarea
+                          rows={3}
+                          value={reminderMessageTemplate}
+                          onChange={(e) => setReminderMessageTemplate(e.target.value)}
+                          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                        />
+                      </label>
+                    </div>
+                  </section>
                 </>
               ) : (
                 <AgentPersonalityPanel

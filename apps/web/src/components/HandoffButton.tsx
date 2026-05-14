@@ -17,7 +17,9 @@ export function HandoffButton({ conversationId, currentStatus }: Props) {
     try {
       const res = await fetch(`/api/internal/conversations/${conversationId}/handoff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ reason: "manual_from_next_panel" }),
       });
       if (!res.ok) {

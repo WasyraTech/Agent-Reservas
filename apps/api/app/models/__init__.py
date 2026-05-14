@@ -46,6 +46,49 @@ class WorkspaceApiKey(Base):
     key_hmac: Mapped[str] = mapped_column(String(128), index=True)
     label: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PanelOperatorRole(enum.StrEnum):
+    admin = "admin"
+    operator = "operator"
+
+
+class PanelOperator(Base):
+    """Operador humano del panel (login vía Twilio Verify, típicamente WhatsApp).
+
+    Un mismo ``phone_e164`` solo puede existir una vez en el sistema (un usuario = un negocio).
+    """
+
+    __tablename__ = "panel_operators"
+    __table_args__ = (UniqueConstraint("phone_e164", name="uq_panel_operators_phone_e164"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True, default=DEFAULT_WORKSPACE_ID
+    )
+    phone_e164: Mapped[str] = mapped_column(String(24), index=True)
+    display_name: Mapped[str] = mapped_column(String(120), default="")
+    role: Mapped[PanelOperatorRole] = mapped_column(
+        Enum(PanelOperatorRole, native_enum=False, length=16),
+        default=PanelOperatorRole.operator,
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PanelSession(Base):
+    """Sesión de panel (token opaco hasheado en BD)."""
+
+    __tablename__ = "panel_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    operator_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("panel_operators.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ConversationStatus(enum.StrEnum):
@@ -83,6 +126,11 @@ class Conversation(Base):
     )
     twilio_from: Mapped[str] = mapped_column(String(64), index=True)
     twilio_to: Mapped[str] = mapped_column(String(64), index=True)
+    assigned_operator_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("panel_operators.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     account_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[ConversationStatus] = mapped_column(
         Enum(ConversationStatus), default=ConversationStatus.open
@@ -191,6 +239,7 @@ class Appointment(Base):
     service_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -261,6 +310,10 @@ class AppConfiguration(Base):
     appointment_required_fields_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     reminder_message_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     reminder_hours_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    require_appointment_confirmation: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    agent_response_language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    agent_tone_style: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

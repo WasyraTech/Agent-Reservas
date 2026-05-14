@@ -21,6 +21,7 @@ from app.agent.tool_handlers import (
 from app.config import get_settings
 from app.models import Conversation, MessageDirection
 from app.services.conversation import list_recent_messages
+from app.services.agent_channel_voice import agent_disruption_message, no_reply_fallback
 from app.services.effective_settings import EffectiveSettings
 
 logger = logging.getLogger(__name__)
@@ -221,7 +222,7 @@ async def generate_with_gemini(
                 fc = _first_function_call(response)
                 if fc is None:
                     text = _response_text(response)
-                    return text or "Gracias por tu mensaje. Un agente te contactará pronto."
+                    return text or no_reply_fallback(eff)
 
                 arg_dict: dict[str, Any] = {}
                 if isinstance(fc.args, dict):
@@ -245,10 +246,10 @@ async def generate_with_gemini(
                     tool_payload = {"result": payload}
 
                 if not response.candidates:
-                    return "No pude leer la respuesta del modelo. Intenta de nuevo."
+                    return agent_disruption_message("technical", eff)
                 cand = response.candidates[0].content
                 if cand is None:
-                    return "No pude leer la respuesta del modelo. Intenta de nuevo."
+                    return agent_disruption_message("technical", eff)
 
                 fr_part = types.Part.from_function_response(
                     name=fc.name,
@@ -264,9 +265,7 @@ async def generate_with_gemini(
                     config=config,
                 )
 
-            return (
-                "No pude completar la solicitud en este momento. Intenta de nuevo en unos minutos."
-            )
+            return agent_disruption_message("technical", eff)
         finally:
 
             def _close() -> None:
@@ -276,11 +275,8 @@ async def generate_with_gemini(
     except Exception as exc:  # noqa: BLE001
         if isinstance(exc, TimeoutError):
             logger.warning("Gemini request timeout: %s", exc)
-            return (
-                "La respuesta del modelo tardó demasiado. Intenta de nuevo en unos segundos "
-                "o un asesor te ayudará."
-            )
+            return agent_disruption_message("timeout", eff)
         if _looks_like_quota_error(exc):
             logger.warning("Gemini quota exhausted after retries: %s", exc)
-            return gemini_quota_user_message(exc)
+            return agent_disruption_message("quota", eff)
         raise

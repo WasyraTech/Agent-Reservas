@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.deps import WorkspaceContext, get_workspace_context
+from app.deps import get_internal_caller
+from app.panel_access import InternalCaller
 from app.services.booking_config import BUSINESS_TYPES, DEFAULT_TIMEZONE
 from app.services.catalog_import import parse_catalog_bytes
 from app.services.effective_settings import build_effective_settings, ensure_app_config_row
@@ -17,7 +18,15 @@ router = APIRouter(
     tags=["settings"],
 )
 
-WsCtx = Annotated[WorkspaceContext, Depends(get_workspace_context)]
+IcCtx = Annotated[InternalCaller, Depends(get_internal_caller)]
+
+
+def _require_settings_write(ic: InternalCaller) -> None:
+    if not ic.is_full_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores pueden modificar la configuración.",
+        )
 
 
 class SettingsPublic(BaseModel):
@@ -73,6 +82,9 @@ class SettingsPublic(BaseModel):
     buffer_between_appointments_minutes: int
     reminder_hours_before: int
     requires_id_document: bool
+    require_appointment_confirmation: bool
+    agent_response_language: str
+    agent_tone_style: str
 
     # --- catálogos para selects del frontend ---
     business_type_choices: list[str] = list(BUSINESS_TYPES)
@@ -138,6 +150,9 @@ class SettingsUpdate(BaseModel):
     buffer_between_appointments_minutes: int | None = Field(default=None, ge=0, le=240)
     reminder_hours_before: int | None = Field(default=None, ge=0, le=336)
     requires_id_document: bool | None = Field(default=None)
+    require_appointment_confirmation: bool | None = Field(default=None)
+    agent_response_language: str | None = Field(default=None, max_length=16)
+    agent_tone_style: str | None = Field(default=None, max_length=32)
 
 
 def _public_from_effective(eff) -> SettingsPublic:
@@ -188,23 +203,27 @@ def _public_from_effective(eff) -> SettingsPublic:
         buffer_between_appointments_minutes=eff.buffer_between_appointments_minutes,
         reminder_hours_before=eff.reminder_hours_before,
         requires_id_document=eff.requires_id_document,
+        require_appointment_confirmation=eff.require_appointment_confirmation,
+        agent_response_language=eff.agent_response_language,
+        agent_tone_style=eff.agent_tone_style,
     )
 
 
 @router.get("", response_model=SettingsPublic)
 async def get_workspace_settings(
     db: Annotated[AsyncSession, Depends(get_db)],
-    ws: WsCtx,
+    ic: IcCtx,
 ) -> SettingsPublic:
-    eff = await build_effective_settings(db, ws.workspace_id)
+    eff = await build_effective_settings(db, ic.workspace_id)
     return _public_from_effective(eff)
 
 
 @router.post("/agent-catalog/parse", response_model=CatalogParseOut)
 async def parse_agent_catalog_upload(
-    _ws: WsCtx,
+    ic: IcCtx,
     file: UploadFile = File(...),
 ) -> CatalogParseOut:
+    _require_settings_write(ic)
     """Convierte CSV o Excel (.xlsx) en líneas «celda | celda | …» para pegar en el catálogo."""
     raw = await file.read()
     try:
@@ -250,6 +269,8 @@ _TEXT_FIELDS: tuple[str, ...] = (
     "cancellation_policy",
     "appointment_required_fields_json",
     "reminder_message_template",
+    "agent_response_language",
+    "agent_tone_style",
 )
 
 _INT_FIELDS: tuple[str, ...] = (
@@ -261,16 +282,17 @@ _INT_FIELDS: tuple[str, ...] = (
     "reminder_hours_before",
 )
 
-_BOOL_FIELDS: tuple[str, ...] = ("requires_id_document",)
+_BOOL_FIELDS: tuple[str, ...] = ("requires_id_document", "require_appointment_confirmation")
 
 
 @router.put("", response_model=SettingsPublic)
 async def put_workspace_settings(
     body: SettingsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    ws: WsCtx,
+    ic: IcCtx,
 ) -> SettingsPublic:
-    row = await ensure_app_config_row(db, ws.workspace_id)
+    _require_settings_write(ic)
+    row = await ensure_app_config_row(db, ic.workspace_id)
     data = body.model_dump(exclude_unset=True)
 
     def norm_opt_str(v: str | None) -> str | None:
@@ -299,5 +321,5 @@ async def put_workspace_settings(
     # Validación leve para business_type: si llega vacío o desconocido, se guarda tal cual
     # (el frontend muestra el catálogo `business_type_choices`).
     await db.commit()
-    eff = await build_effective_settings(db, ws.workspace_id)
+    eff = await build_effective_settings(db, ic.workspace_id)
     return _public_from_effective(eff)

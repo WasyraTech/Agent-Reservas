@@ -32,7 +32,9 @@ export function ChatDetailRefresh({
   const check = useCallback(async () => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     try {
-      const res = await fetch(`/api/internal/conversations/${conversationId}`, { cache: "no-store" });
+      const res = await fetch(`/api/internal/conversations/${conversationId}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const j = (await res.json()) as Payload;
       const last = j.messages?.length ? j.messages[j.messages.length - 1]!.id : "";

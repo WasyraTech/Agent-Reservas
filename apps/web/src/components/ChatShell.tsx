@@ -39,7 +39,9 @@ function filterQueryString(sp: URLSearchParams): string {
 async function fetchConversationRows(fq: string): Promise<ChatSidebarRow[]> {
   const qs = new URLSearchParams(fq ? fq.slice(1) : "");
   qs.set("limit", "100");
-  const res = await fetch(`/api/internal/conversations?${qs}`, { cache: "no-store" });
+  const res = await fetch(`/api/internal/conversations?${qs}`, {
+    cache: "no-store",
+  });
   if (!res.ok) {
     const t = await res.text();
     throw new Error(t || `HTTP ${res.status}`);

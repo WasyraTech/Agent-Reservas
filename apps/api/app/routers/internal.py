@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
-from app.deps import WorkspaceContext, get_workspace_context
+from app.deps import get_internal_caller
+from app.panel_access import InternalCaller
 from app.models import (
     Appointment,
     Conversation,
@@ -21,11 +22,20 @@ from app.models import (
     HandoffStatus,
     Lead,
     Message,
+    PanelOperator,
 )
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
-WsCtx = Annotated[WorkspaceContext, Depends(get_workspace_context)]
+IcCtx = Annotated[InternalCaller, Depends(get_internal_caller)]
+
+
+def _conversation_scope(ic: InternalCaller):
+    parts = [Conversation.workspace_id == ic.workspace_id]
+    vis = ic.conversation_visibility_clause()
+    if vis is not None:
+        parts.append(vis)
+    return and_(*parts)
 
 
 class MessageOut(BaseModel):
@@ -75,6 +85,7 @@ class ConversationSummary(BaseModel):
     last_agent_llm_status: str
     has_pending_handoff: bool = False
     last_agent_llm_error_snippet: str | None = None
+    assigned_operator_id: UUID | None = None
 
 
 class HandoffBrief(BaseModel):
@@ -114,6 +125,7 @@ class ConversationDetail(BaseModel):
     last_agent_llm_error: str | None = None
     pending_handoff: HandoffBrief | None = None
     appointments: list[AppointmentBrief] = Field(default_factory=list)
+    assigned_operator_id: UUID | None = None
 
 
 class ConversationPanelPatch(BaseModel):
@@ -125,6 +137,15 @@ class ConversationPanelOut(BaseModel):
     id: UUID
     internal_notes: str | None
     internal_tags: list[str]
+
+
+class ConversationAssignmentPatch(BaseModel):
+    assigned_operator_id: UUID | None = None
+
+
+class ClaimOut(BaseModel):
+    ok: bool
+    assigned_operator_id: UUID | None = None
 
 
 class HandoffCreate(BaseModel):
@@ -227,7 +248,7 @@ def _conversation_filters(
 @router.get("/status", response_model=DeploymentStatus)
 async def deployment_status(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _ws: WsCtx,
+    _ic: IcCtx,
 ) -> DeploymentStatus:
     await db.execute(text("SELECT 1"))
     return DeploymentStatus(
@@ -240,7 +261,7 @@ async def deployment_status(
 
 @router.get("/conversations", response_model=list[ConversationSummary])
 async def list_conversations(
-    ws: WsCtx,
+    ic: IcCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -272,7 +293,7 @@ async def list_conversations(
         func.coalesce(count_sq.c.cnt, 0).label("message_count"),
         handoff_pending_sq.label("has_pending_handoff"),
     ).outerjoin(count_sq, count_sq.c.conversation_id == Conversation.id)
-    conds = [Conversation.workspace_id == ws.workspace_id]
+    conds = [_conversation_scope(ic)]
     conds.extend(_conversation_filters(q=q, status=status, date_from=date_from, date_to=date_to))
     if conds:
         stmt = stmt.where(and_(*conds))
@@ -298,6 +319,7 @@ async def list_conversations(
                 last_agent_llm_status=str(llm),
                 has_pending_handoff=bool(has_ph),
                 last_agent_llm_error_snippet=snippet,
+                assigned_operator_id=getattr(conv, "assigned_operator_id", None),
             )
         )
     return out
@@ -305,7 +327,7 @@ async def list_conversations(
 
 @router.get("/leads", response_model=list[LeadListItem])
 async def list_leads(
-    ws: WsCtx,
+    ic: IcCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -317,7 +339,7 @@ async def list_leads(
     stmt = (
         select(Lead, Conversation.twilio_from)
         .join(Conversation, Lead.conversation_id == Conversation.id)
-        .where(Conversation.workspace_id == ws.workspace_id)
+        .where(_conversation_scope(ic))
     )
     conds: list = []
     if q and q.strip():
@@ -400,18 +422,20 @@ class AppointmentListItem(BaseModel):
 
 @router.get("/appointments", response_model=list[AppointmentListItem])
 async def list_appointments(
-    ws: WsCtx,
+    ic: IcCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-    status: str | None = Query(default=None, description="confirmed | cancelled"),
+    status: str | None = Query(
+        default=None, description="confirmed | pending_confirmation | cancelled"
+    ),
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
 ) -> list[AppointmentListItem]:
     stmt = (
         select(Appointment, Conversation.twilio_from)
         .join(Conversation, Appointment.conversation_id == Conversation.id)
-        .where(Conversation.workspace_id == ws.workspace_id)
+        .where(_conversation_scope(ic))
     )
     conds: list = []
     if status and status.strip():
@@ -453,14 +477,16 @@ async def list_appointments(
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 async def get_conversation(
     conversation_id: UUID,
-    ws: WsCtx,
+    ic: IcCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ConversationDetail:
     stmt = (
         select(Conversation)
         .where(
-            Conversation.id == conversation_id,
-            Conversation.workspace_id == ws.workspace_id,
+            and_(
+                Conversation.id == conversation_id,
+                _conversation_scope(ic),
+            )
         )
         .options(
             selectinload(Conversation.messages),
@@ -498,19 +524,22 @@ async def get_conversation(
         last_agent_llm_error=llm_err,
         pending_handoff=_pending_handoff(conv),
         appointments=appt_briefs,
+        assigned_operator_id=getattr(conv, "assigned_operator_id", None),
     )
 
 
 @router.patch("/conversations/{conversation_id}/panel", response_model=ConversationPanelOut)
 async def patch_conversation_panel(
     conversation_id: UUID,
-    ws: WsCtx,
+    ic: IcCtx,
     body: ConversationPanelPatch,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ConversationPanelOut:
     stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.workspace_id == ws.workspace_id,
+        and_(
+            Conversation.id == conversation_id,
+            _conversation_scope(ic),
+        )
     )
     result = await db.execute(stmt)
     conv = result.scalar_one_or_none()
@@ -534,13 +563,15 @@ async def patch_conversation_panel(
 @router.post("/conversations/{conversation_id}/handoff", response_model=HandoffOut)
 async def create_handoff(
     conversation_id: UUID,
-    ws: WsCtx,
+    ic: IcCtx,
     body: HandoffCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HandoffOut:
     stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.workspace_id == ws.workspace_id,
+        and_(
+            Conversation.id == conversation_id,
+            _conversation_scope(ic),
+        )
     )
     result = await db.execute(stmt)
     conv = result.scalar_one_or_none()
@@ -561,10 +592,20 @@ async def create_handoff(
 @router.post("/conversations/{conversation_id}/handoff/resolve")
 async def resolve_pending_handoff(
     conversation_id: UUID,
-    ws: WsCtx,
+    ic: IcCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, object]:
     """Marca handoffs pendientes como resueltos y reabre la conversación si estaba en handed_off."""
+    conv_scope = await db.execute(
+        select(Conversation.id).where(
+            and_(
+                Conversation.id == conversation_id,
+                _conversation_scope(ic),
+            )
+        )
+    )
+    if conv_scope.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     stmt = select(Handoff).where(
         Handoff.conversation_id == conversation_id,
         Handoff.status == HandoffStatus.pending,
@@ -581,8 +622,10 @@ async def resolve_pending_handoff(
         h.resolved_at = now
     conv_row = await db.execute(
         select(Conversation).where(
-            Conversation.id == conversation_id,
-            Conversation.workspace_id == ws.workspace_id,
+            and_(
+                Conversation.id == conversation_id,
+                _conversation_scope(ic),
+            )
         )
     )
     conv = conv_row.scalar_one_or_none()
@@ -590,3 +633,74 @@ async def resolve_pending_handoff(
         conv.status = ConversationStatus.open
     await db.commit()
     return {"ok": True, "resolved_count": len(pending_list)}
+
+
+@router.post("/conversations/{conversation_id}/claim", response_model=ClaimOut)
+async def claim_conversation(
+    conversation_id: UUID,
+    ic: IcCtx,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ClaimOut:
+    """Asigna la conversación al operador actual (solo si está libre o ya es suya)."""
+    if ic.operator is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere sesión de operador.",
+        )
+    stmt = select(Conversation).where(
+        and_(
+            Conversation.id == conversation_id,
+            Conversation.workspace_id == ic.workspace_id,
+        )
+    )
+    vis = ic.conversation_visibility_clause()
+    if vis is not None:
+        stmt = stmt.where(vis)
+    result = await db.execute(stmt)
+    conv = result.scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    aid = conv.assigned_operator_id
+    if aid is not None and aid != ic.operator.id:
+        raise HTTPException(
+            status_code=409,
+            detail="La conversación ya está asignada a otro operador.",
+        )
+    conv.assigned_operator_id = ic.operator.id
+    await db.commit()
+    await db.refresh(conv)
+    return ClaimOut(ok=True, assigned_operator_id=conv.assigned_operator_id)
+
+
+@router.patch("/conversations/{conversation_id}/assignment", response_model=ClaimOut)
+async def patch_conversation_assignment(
+    conversation_id: UUID,
+    ic: IcCtx,
+    body: ConversationAssignmentPatch,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ClaimOut:
+    """Solo administradores: asignar o liberar conversación."""
+    if not ic.is_full_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores pueden reasignar conversaciones.",
+        )
+    stmt = select(Conversation).where(
+        and_(
+            Conversation.id == conversation_id,
+            Conversation.workspace_id == ic.workspace_id,
+        )
+    )
+    result = await db.execute(stmt)
+    conv = result.scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    new_id = body.assigned_operator_id
+    if new_id is not None:
+        op = await db.get(PanelOperator, new_id)
+        if op is None or op.workspace_id != ic.workspace_id or not op.active:
+            raise HTTPException(status_code=400, detail="Operador no válido")
+    conv.assigned_operator_id = new_id
+    await db.commit()
+    await db.refresh(conv)
+    return ClaimOut(ok=True, assigned_operator_id=conv.assigned_operator_id)

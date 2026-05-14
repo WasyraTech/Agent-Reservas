@@ -14,6 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Estados que bloquean huecos en agenda (solape DB + constraint EXCLUDE).
+_APPOINTMENT_BLOCKS_SLOT: tuple[str, ...] = ("confirmed", "pending_confirmation")
+
 from app.config import get_settings
 from app.integrations import google_calendar as gcal
 from app.models import (
@@ -24,6 +27,11 @@ from app.models import (
     HandoffStatus,
     MessageDirection,
     ToolInvocation,
+)
+from app.services.agent_channel_voice import (
+    agent_disruption_message,
+    channel_voice_system_section,
+    no_reply_fallback,
 )
 from app.services.conversation import list_recent_messages
 from app.services.effective_settings import EffectiveSettings, build_effective_settings
@@ -75,6 +83,12 @@ class BookAppointmentArgs(BaseModel):
     time_zone: str = Field(
         default="America/Lima",
         description="Zona IANA del negocio para el evento en Calendar.",
+    )
+
+
+class ConfirmAppointmentArgs(BaseModel):
+    appointment_id: str = Field(
+        description="UUID devuelto por book_appointment cuando la cita quedó pendiente de confirmación."
     )
 
 
@@ -139,11 +153,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "book_appointment",
             "description": (
-                "Registra una cita confirmada por el usuario en esta conversación. "
-                "Solo después de acordar inicio y fin claros y de saber qué servicio o motivo "
-                "de visita quiere el cliente (si el panel lista servicios, service_label es "
-                "obligatorio y debe reflejar lo acordado). Crea evento en Google Calendar "
-                "si está configurado. Falla si el hueco ya está ocupado."
+                "Crea la reserva en el horario acordado. Si el negocio exige confirmación explícita "
+                "(panel), la cita queda pendiente hasta que el cliente confirme y entonces debes "
+                "llamar confirm_appointment. Si no, queda confirmada de inmediato y se crea el "
+                "evento en Google Calendar cuando aplique. Falla si el hueco ya está ocupado."
             ),
             "parameters": {
                 "type": "object",
@@ -185,10 +198,32 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "confirm_appointment",
+            "description": (
+                "Confirma definitivamente una cita que estaba en estado pendiente de confirmación "
+                "tras un «sí» explícito del cliente al horario y servicio propuestos. Crea el "
+                "evento en Google Calendar si aplica. No uses esta herramienta si el negocio "
+                "no usa confirmación en dos pasos o si la cita ya está confirmada."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "string",
+                        "description": "UUID tal cual lo devolvió book_appointment en estado pendiente.",
+                    },
+                },
+                "required": ["appointment_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_my_appointments",
             "description": (
-                "Lista las citas activas (confirmadas) vinculadas a este chat de WhatsApp, "
-                "más recientes primero. Útil para cancelar o reprogramar."
+                "Lista las citas confirmadas o pendientes de confirmación de este chat, "
+                "más recientes primero. Útil para cancelar, reprogramar o confirmar."
             ),
             "parameters": {
                 "type": "object",
@@ -363,11 +398,11 @@ def _reject_if_slot_date_in_past(
     }
 
 
-async def _db_confirmed_busy(
+async def _db_reserved_busy(
     session: AsyncSession, utc_min: datetime, utc_max: datetime
 ) -> list[tuple[datetime, datetime]]:
     stmt = select(Appointment).where(
-        Appointment.status == "confirmed",
+        Appointment.status.in_(_APPOINTMENT_BLOCKS_SLOT),
         Appointment.start_at < utc_max,
         Appointment.end_at > utc_min,
     )
@@ -434,7 +469,7 @@ async def _get_available_slots(
     utc_min = local_day_start.astimezone(UTC)
     utc_max = local_day_end.astimezone(UTC)
 
-    busy = await _db_confirmed_busy(session, utc_min, utc_max)
+    busy = await _db_reserved_busy(session, utc_min, utc_max)
     try:
         gbusy = await gcal.freebusy_busy_intervals_utc(
             service_account_json=sa_json,
@@ -476,10 +511,21 @@ async def _get_available_slots(
         "slot_duration_minutes": parsed.slot_duration_minutes,
         "slots": slots,
         "booking_instruction": (
-            "Al confirmar con book_appointment, usa exactamente book_start_datetime_iso y "
-            "book_end_datetime_iso del objeto en slots que coincida con el horario elegido "
-            "(mismas cadenas). Así la fecha en Google Calendar coincide con el día consultado "
-            f"({parsed.date}). No sustituyas por la fecha de hoy ni inventes otros ISO."
+            (
+                "Si el negocio exige confirmación explícita: primero book_appointment crea una "
+                "reserva pendiente; cuando el usuario confirme con un «sí» claro, llama "
+                "confirm_appointment con el appointment_id devuelto. "
+                "Si no hay confirmación obligatoria, book_appointment confirma de inmediato. "
+                "En ambos casos usa exactamente book_start_datetime_iso y book_end_datetime_iso "
+                "del slot elegido."
+            )
+            if eff.require_appointment_confirmation
+            else (
+                "Al reservar con book_appointment, usa exactamente book_start_datetime_iso y "
+                "book_end_datetime_iso del objeto en slots que coincida con el horario elegido "
+                "(mismas cadenas). Así la fecha en Google Calendar coincide con el día consultado "
+                f"({parsed.date}). No sustituyas por la fecha de hoy ni inventes otros ISO."
+            )
         ),
     }
     if service_match_hint:
@@ -487,7 +533,7 @@ async def _get_available_slots(
     return out
 
 
-async def _overlap_confirmed(
+async def _overlap_reserved(
     session: AsyncSession,
     start_utc: datetime,
     end_utc: datetime,
@@ -495,7 +541,7 @@ async def _overlap_confirmed(
     exclude_appointment_id: uuid.UUID | None = None,
 ) -> bool:
     stmt = select(Appointment.id).where(
-        Appointment.status == "confirmed",
+        Appointment.status.in_(_APPOINTMENT_BLOCKS_SLOT),
         Appointment.start_at < end_utc,
         Appointment.end_at > start_utc,
     )
@@ -549,7 +595,7 @@ async def _book_appointment(
             ),
         }
 
-    if await _overlap_confirmed(session, start_utc, end_utc):
+    if await _overlap_reserved(session, start_utc, end_utc):
         return {"ok": False, "error": "slot_conflict_database"}
 
     if gcal.calendar_credentials_configured(
@@ -558,9 +604,12 @@ async def _book_appointment(
         if await _google_overlap(eff, start_utc, end_utc):
             return {"ok": False, "error": "slot_conflict_google_calendar"}
 
+    require_confirm = bool(eff.require_appointment_confirmation)
+    target_status = "pending_confirmation" if require_confirm else "confirmed"
+
     appt = Appointment(
         conversation_id=conversation.id,
-        status="confirmed",
+        status=target_status,
         start_at=start_utc,
         end_at=end_utc,
         time_zone=tz_use,
@@ -580,6 +629,21 @@ async def _book_appointment(
             "error": "slot_conflict_database",
             "message": (
                 "Ese horario acaba de ocuparse. Vuelve a llamar get_available_slots y elige otro hueco."
+            ),
+        }
+
+    if target_status == "pending_confirmation":
+        return {
+            "ok": True,
+            "status": "pending_confirmation",
+            "appointment_id": str(appt.id),
+            "start_utc": start_utc.isoformat(),
+            "end_utc": end_utc.isoformat(),
+            "google_event_id": None,
+            "next_step": (
+                "Pregunta al cliente con una sola frase clara si confirma ese día y hora "
+                "(y el servicio acordado). Solo si responde afirmativamente, llama "
+                "confirm_appointment con appointment_id exactamente igual a este UUID."
             ),
         }
 
@@ -613,9 +677,76 @@ async def _book_appointment(
 
     return {
         "ok": True,
+        "status": "confirmed",
         "appointment_id": str(appt.id),
         "start_utc": start_utc.isoformat(),
         "end_utc": end_utc.isoformat(),
+        "google_event_id": appt.google_event_id,
+    }
+
+
+async def _confirm_appointment(
+    session: AsyncSession,
+    conversation: Conversation,
+    eff: EffectiveSettings,
+    args: dict[str, Any],
+) -> dict[str, Any]:
+    parsed = ConfirmAppointmentArgs.model_validate(args)
+    try:
+        aid = uuid.UUID(parsed.appointment_id.strip())
+    except ValueError:
+        return {"ok": False, "error": "invalid_appointment_id"}
+    stmt = select(Appointment).where(
+        Appointment.id == aid,
+        Appointment.conversation_id == conversation.id,
+        Appointment.status == "pending_confirmation",
+    )
+    appt = (await session.execute(stmt)).scalar_one_or_none()
+    if not appt:
+        return {"ok": False, "error": "not_pending_or_not_found"}
+
+    if await _overlap_reserved(session, appt.start_at, appt.end_at, exclude_appointment_id=appt.id):
+        return {"ok": False, "error": "slot_conflict_database"}
+
+    if gcal.calendar_credentials_configured(
+        eff.google_calendar_id, eff.google_service_account_json
+    ):
+        if await _google_overlap(eff, appt.start_at, appt.end_at):
+            return {"ok": False, "error": "slot_conflict_google_calendar"}
+
+    cal_id = eff.google_calendar_id.strip()
+    sa_json = eff.google_service_account_json.strip()
+    if gcal.calendar_credentials_configured(cal_id, sa_json):
+        summary = f"{appt.service_label or 'Cita'} — {appt.client_name or 'Cliente'}"
+        desc_parts = [
+            f"WhatsApp: {conversation.twilio_from}",
+            f"Conversación: {conversation.id}",
+        ]
+        if appt.notes:
+            desc_parts.append(f"Notas: {appt.notes}")
+        try:
+            ev_id = await gcal.insert_calendar_event(
+                service_account_json=sa_json,
+                calendar_id=cal_id,
+                summary=summary[:1020],
+                description="\n".join(desc_parts)[:8000],
+                start=appt.start_at,
+                end=appt.end_at,
+                time_zone=appt.time_zone or "America/Lima",
+                attendee_email=appt.client_email,
+            )
+            appt.google_event_id = ev_id
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": "google_create_failed", "detail": str(exc)[:400]}
+
+    appt.status = "confirmed"
+    await session.flush()
+    return {
+        "ok": True,
+        "status": "confirmed",
+        "appointment_id": str(appt.id),
+        "start_utc": appt.start_at.isoformat(),
+        "end_utc": appt.end_at.isoformat(),
         "google_event_id": appt.google_event_id,
     }
 
@@ -628,7 +759,7 @@ async def _list_my_appointments(
         select(Appointment)
         .where(
             Appointment.conversation_id == conversation.id,
-            Appointment.status == "confirmed",
+            Appointment.status.in_(("confirmed", "pending_confirmation")),
         )
         .order_by(Appointment.start_at.desc())
         .limit(parsed.limit)
@@ -639,6 +770,7 @@ async def _list_my_appointments(
         "appointments": [
             {
                 "appointment_id": str(a.id),
+                "status": a.status,
                 "start_utc": a.start_at.astimezone(UTC).isoformat(),
                 "end_utc": a.end_at.astimezone(UTC).isoformat(),
                 "client_name": a.client_name,
@@ -667,7 +799,7 @@ async def _cancel_appointment(
     appt = (await session.execute(stmt)).scalar_one_or_none()
     if not appt:
         return {"ok": False, "error": "appointment_not_found"}
-    if appt.status != "confirmed":
+    if appt.status not in ("confirmed", "pending_confirmation"):
         return {"ok": False, "error": "already_cancelled"}
 
     cal_id = eff.google_calendar_id.strip()
@@ -704,7 +836,7 @@ async def _reschedule_appointment(
     appt = (await session.execute(stmt)).scalar_one_or_none()
     if not appt:
         return {"ok": False, "error": "appointment_not_found"}
-    if appt.status != "confirmed":
+    if appt.status not in ("confirmed", "pending_confirmation"):
         return {"ok": False, "error": "not_active"}
 
     tz_res = (appt.time_zone or eff.business_timezone or "America/Lima").strip() or "America/Lima"
@@ -722,7 +854,7 @@ async def _reschedule_appointment(
             ),
         }
 
-    if await _overlap_confirmed(session, new_start, new_end, exclude_appointment_id=appt.id):
+    if await _overlap_reserved(session, new_start, new_end, exclude_appointment_id=appt.id):
         return {"ok": False, "error": "slot_conflict_database"}
 
     cal_id = eff.google_calendar_id.strip()
@@ -822,6 +954,8 @@ async def execute_tool(
             result = await _get_available_slots(session, eff_r, args)
         elif tool_name == "book_appointment":
             result = await _book_appointment(session, conversation, eff_r, args)
+        elif tool_name == "confirm_appointment":
+            result = await _confirm_appointment(session, conversation, eff_r, args)
         elif tool_name == "list_my_appointments":
             result = await _list_my_appointments(session, conversation, args)
         elif tool_name == "cancel_appointment":
@@ -863,11 +997,13 @@ Tu trabajo:
      get_available_slots; si puedes, pasa service_name para alinear la duración del hueco con
      ese servicio. Cada hueco trae book_start_datetime_iso y book_end_datetime_iso: son las
      cadenas exactas que debes usar al reservar.
-  3) Tras acordar fecha, hora y servicio, llama book_appointment pasando start_datetime_iso y
-     end_datetime_iso **iguales** a book_start_datetime_iso y book_end_datetime_iso del hueco
-     elegido (no otra fecha: nunca uses «hoy» salvo que el usuario haya elegido hoy). Añade
-     service_label con lo confirmado. Si el panel tiene servicios estructurados, sin
-     service_label la herramienta fallará: no intentes saltarte este paso.
+  3) Tras acordar fecha, hora y servicio, llama book_appointment con los mismos ISO del hueco.
+     Si el negocio usa confirmación en dos pasos, la herramienta devolverá status
+     pending_confirmation: entonces pregunta de forma explícita si confirma (ej. día y hora)
+     y solo si el usuario afirma claramente, llama confirm_appointment con ese appointment_id.
+     Si no hay confirmación obligatoria, book_appointment queda confirmada de inmediato.
+     En book_appointment pasa start_datetime_iso y end_datetime_iso **iguales** a
+     book_start_datetime_iso y book_end_datetime_iso del hueco elegido (no otra fecha).
 - Si solo dice «mañana a las 3» sin servicio, no asumas: pregunta primero qué necesita.
 - Antes de cerrar una reserva, usa get_available_slots cuando Google Calendar esté operativo;
   si la herramienta dice que no está configurado, no inventes huecos: pregunta preferencias y
@@ -1002,11 +1138,13 @@ def build_system_prompt(eff: EffectiveSettings) -> str:
         )
     # 11) Menú inicial (al final para que esté “fresco” al primer turno).
     parts.append(_welcome_menu_block(eff))
+    parts.append(channel_voice_system_section(eff))
     parts.append(
         "\n\n## Recordatorio final\n"
-        "Las herramientas get_available_slots, book_appointment, list_my_appointments, "
-        "cancel_appointment y reschedule_appointment son la fuente de verdad de la agenda. "
-        "No confirmes una cita al usuario sin que book_appointment haya respondido ok. "
+        "Las herramientas get_available_slots, book_appointment, confirm_appointment (si aplica), "
+        "list_my_appointments, cancel_appointment y reschedule_appointment son la fuente de verdad "
+        "de la agenda. No confirmes una cita al usuario sin que book_appointment (y, si aplica, "
+        "confirm_appointment) hayan respondido ok. "
         "No uses get_available_slots ni book_appointment hasta tener explícito qué servicio "
         "o motivo de visita quiere el cliente (si no hay lista en el panel, acláralo con una "
         "pregunta breve antes de reservar). "
@@ -1115,6 +1253,6 @@ async def generate_assistant_reply(
                 )
             continue
         text = (choice.content or "").strip()
-        return text or "Gracias por tu mensaje. Un agente te contactará pronto."
+        return text or no_reply_fallback(eff)
 
-    return "No pude completar la solicitud en este momento. Intenta de nuevo en unos minutos."
+    return agent_disruption_message("technical", eff)

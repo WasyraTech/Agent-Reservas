@@ -53,6 +53,9 @@ export type Settings = {
   buffer_between_appointments_minutes: number;
   reminder_hours_before: number;
   requires_id_document: boolean;
+  require_appointment_confirmation: boolean;
+  agent_response_language: string;
+  agent_tone_style: string;
 
   // --- selects ---
   business_type_choices?: string[];

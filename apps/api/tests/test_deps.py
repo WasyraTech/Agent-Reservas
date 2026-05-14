@@ -17,8 +17,11 @@ async def test_internal_key_accepts_x_api_key_header() -> None:
         s.internal_api_key = "secret-key"
         s.internal_api_key_pepper = "pepper"
         p.return_value = s
-        ctx = await get_workspace_context(db=mock_db, x_api_key="secret-key", authorization=None)
+        ctx = await get_workspace_context(
+            db=mock_db, x_api_key="secret-key", authorization=None, x_workspace_id=None
+        )
     assert ctx.workspace_id == DEFAULT_WORKSPACE_ID
+    assert ctx.is_master is True
 
 
 @pytest.mark.asyncio
@@ -30,7 +33,7 @@ async def test_internal_key_accepts_bearer() -> None:
         s.internal_api_key_pepper = "pepper"
         p.return_value = s
         ctx = await get_workspace_context(
-            db=mock_db, x_api_key=None, authorization="Bearer secret-key"
+            db=mock_db, x_api_key=None, authorization="Bearer secret-key", x_workspace_id=None
         )
     assert ctx.workspace_id == DEFAULT_WORKSPACE_ID
 
@@ -48,7 +51,9 @@ async def test_internal_key_rejects_wrong_key() -> None:
         s.internal_api_key_pepper = "pepper"
         p.return_value = s
         with pytest.raises(HTTPException) as ei:
-            await get_workspace_context(db=mock_db, x_api_key="wrong", authorization=None)
+            await get_workspace_context(
+                db=mock_db, x_api_key="wrong", authorization=None, x_workspace_id=None
+            )
         assert ei.value.status_code == 401
 
 
@@ -61,5 +66,5 @@ async def test_internal_key_missing_config_returns_503() -> None:
         s.internal_api_key_pepper = "pepper"
         p.return_value = s
         with pytest.raises(HTTPException) as ei:
-            await get_workspace_context(db=mock_db, x_api_key="x", authorization=None)
+            await get_workspace_context(db=mock_db, x_api_key="x", authorization=None, x_workspace_id=None)
         assert ei.value.status_code == 503

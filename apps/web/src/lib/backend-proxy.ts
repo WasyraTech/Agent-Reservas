@@ -4,6 +4,28 @@ import { getBackendUrl, getInternalApiKey } from "@/lib/env";
 
 const ID_HEADERS = ["x-request-id", "x-correlation-id"] as const;
 
+const PANEL_SESSION_COOKIE = "ar_panel_session";
+
+function panelSessionFromCookie(cookieHeader: string | null): string | undefined {
+  if (!cookieHeader) {
+    return undefined;
+  }
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    const name = (idx === -1 ? part : part.slice(0, idx)).trim();
+    if (name !== PANEL_SESSION_COOKIE) {
+      continue;
+    }
+    const raw = (idx === -1 ? "" : part.slice(idx + 1)).trim();
+    try {
+      return decodeURIComponent(raw) || undefined;
+    } catch {
+      return raw || undefined;
+    }
+  }
+  return undefined;
+}
+
 export function forwardedRequestId(req: Request): string {
   for (const h of ID_HEADERS) {
     const v = req.headers.get(h)?.trim();
@@ -40,6 +62,15 @@ export async function proxyToBackend(
   const headers = new Headers(init.headers);
   headers.set("X-API-Key", key);
   headers.set("X-Request-ID", rid);
+  const incomingWs = incoming.headers.get("X-Panel-Session")?.trim();
+  if (incomingWs) {
+    headers.set("X-Panel-Session", incomingWs);
+  } else {
+    const fromCookie = panelSessionFromCookie(incoming.headers.get("cookie"));
+    if (fromCookie) {
+      headers.set("X-Panel-Session", fromCookie);
+    }
+  }
   const res = await fetch(url, {
     ...init,
     headers,

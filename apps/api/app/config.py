@@ -63,6 +63,30 @@ class Settings(BaseSettings):
 
     redis_url: str = ""
 
+    # Twilio Verify (OTP panel). SID tipo VA…
+    twilio_verify_service_sid: str = ""
+    # Canal de envío: sms (por defecto) o whatsapp (requiere WhatsApp configurado en ese servicio Verify).
+    twilio_verify_channel: str = "sms"
+
+    @field_validator("twilio_verify_channel", mode="before")
+    @classmethod
+    def twilio_verify_channel_ok(cls, v: object) -> object:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return "sms"
+        if isinstance(v, str):
+            c = v.strip().lower()
+            if c in ("sms", "whatsapp"):
+                return c
+            raise ValueError("TWILIO_VERIFY_CHANNEL debe ser sms o whatsapp.")
+        return v
+
+    # Si no hay operadores en BD, crea uno admin al arrancar (E.164 con +).
+    panel_bootstrap_admin_e164: str = ""
+    panel_bootstrap_admin_name: str = "Admin"
+
+    # Duración de sesión de panel tras OTP (días).
+    panel_session_days: int = 14
+
     cors_origins: str = "http://localhost:3000"
 
     llm_timeout_seconds: float = 45.0

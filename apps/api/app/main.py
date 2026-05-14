@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -10,11 +11,11 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.config import cors_origin_list
-from app.db.session import engine, init_db
+from app.db.session import engine, init_db, SessionLocal
 from app.logging_setup import configure_logging
 from app.middleware.correlation_id import CorrelationIdMiddleware, RequestIdLogFilter
 from app.rate_limit import limiter
-from app.routers import internal, workspace_settings
+from app.routers import internal, panel_auth, panel_team, workspace_settings, workspaces_admin
 from app.webhooks import twilio_whatsapp
 
 configure_logging()
@@ -33,7 +34,30 @@ async def lifespan(_app: FastAPI):
         log.exception("Startup falló durante init_db(): saliendo.")
         raise
     log.info("Startup: database ready.")
+
+    async with SessionLocal() as session:
+        from app.services.panel_bootstrap import ensure_panel_bootstrap_admin
+
+        await ensure_panel_bootstrap_admin(session)
+
+    async def _reminder_loop() -> None:
+        from app.services.appointment_reminders import run_appointment_reminder_tick
+
+        while True:
+            await asyncio.sleep(300)
+            try:
+                async with SessionLocal() as session:
+                    await run_appointment_reminder_tick(session)
+            except Exception:
+                logging.getLogger(__name__).exception("appointment reminder tick failed")
+
+    reminder_task = asyncio.create_task(_reminder_loop())
     yield
+    reminder_task.cancel()
+    try:
+        await reminder_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
@@ -50,16 +74,18 @@ app.add_middleware(
         "Authorization",
         "Content-Type",
         "X-API-Key",
-        "X-Request-ID",
-        "X-Correlation-ID",
+        "X-Panel-Session",
     ],
     expose_headers=["X-Request-ID"],
 )
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(twilio_whatsapp.router)
+app.include_router(panel_auth.router)
+app.include_router(panel_team.router)
 app.include_router(internal.router)
 app.include_router(workspace_settings.router)
+app.include_router(workspaces_admin.router)
 
 
 @app.get("/health")

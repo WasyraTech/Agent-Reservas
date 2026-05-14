@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { AppNav } from "@/components/AppNav";
 import { AppTour } from "@/components/AppTour";
+import { fetchPanelMe } from "@/lib/server-api";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,21 +23,22 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "WhatsApp Agent",
-  description: "Panel para conversaciones y citas (Twilio + FastAPI + Google Calendar)",
+  title: "Agent Reservas · Console",
+  description: "Panel ejecutivo para conversaciones, citas y configuración (Twilio + FastAPI + Calendar)",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const panelUser = await fetchPanelMe();
   return (
     <html lang="es">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} min-h-screen antialiased`}
       >
-        <AppNav />
+        <AppNav panelUser={panelUser} />
         <AppTour />
         {children}
       </body>

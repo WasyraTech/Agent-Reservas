@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ChatDetailRefresh } from "@/components/ChatDetailRefresh";
+import { ConversationAssignmentBar } from "@/components/ConversationAssignmentBar";
 import { ConversationNotesPanel } from "@/components/ConversationNotesPanel";
 import { HandoffButton } from "@/components/HandoffButton";
 import { LeadQualificationChips } from "@/components/LeadQualificationChips";
 import { ResolveHandoffButton } from "@/components/ResolveHandoffButton";
-import { fetchConversation } from "@/lib/server-api";
+import { fetchConversation, fetchPanelMe } from "@/lib/server-api";
 import { waAvatarGlyph, waAvatarHue, waChatTitle } from "@/lib/wa-display";
 
 type Props = { params: Promise<{ id: string }> };
@@ -20,6 +21,7 @@ export default async function ChatDetailPage({ params }: Props) {
     notFound();
   }
 
+  const me = await fetchPanelMe();
   const title = waChatTitle(data.twilio_from);
   const glyph = waAvatarGlyph(data.twilio_from);
   const hue = waAvatarHue(data.twilio_from);
@@ -36,6 +38,13 @@ export default async function ChatDetailPage({ params }: Props) {
         initialUpdatedAt={data.updated_at}
         initialLastMessageId={lastMsg?.id ?? ""}
       />
+      {me ? (
+        <ConversationAssignmentBar
+          conversationId={data.id}
+          assignedOperatorId={data.assigned_operator_id ?? null}
+          isAdmin={me.role === "admin"}
+        />
+      ) : null}
       <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] bg-gradient-to-b from-[#1e2a32] to-[var(--wa-panel)] px-3 py-2 shadow-lg sm:px-4">
         <Link
           href="/chats"

@@ -11,11 +11,13 @@ from openai import RateLimitError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.gemini_agent import _looks_like_quota_error, gemini_quota_user_message
+from app.agent.gemini_agent import _looks_like_quota_error
 from app.agent.tool_handlers import generate_assistant_reply
 from app.config import get_settings
 from app.constants import REPLY_JOB_QUEUE_KEY
 from app.models import MessageDirection
+from app.services.agent_channel_voice import agent_disruption_message
+from app.services.effective_settings import build_effective_settings
 from app.services.conversation import (
     add_message,
     get_inbound_by_twilio_sid,
@@ -125,6 +127,7 @@ async def process_inbound_whatsapp(
     except IntegrityError:
         return twiml_empty()
 
+    eff = await build_effective_settings(session, conv.workspace_id)
     timeout = get_settings().webhook_processing_timeout_seconds
     try:
         async with asyncio.timeout(timeout):
@@ -133,30 +136,21 @@ async def process_inbound_whatsapp(
         conv.last_agent_llm_error = None
     except TimeoutError:
         logger.warning("webhook LLM timeout conversation_id=%s (%.1fs)", conv.id, timeout)
-        reply = (
-            "Tu mensaje llegó pero la respuesta automática tardó demasiado. "
-            "Intenta de nuevo en un momento o un asesor te contactará."
-        )
+        reply = agent_disruption_message("timeout", eff)
         conv.last_agent_llm_status = "error"
         conv.last_agent_llm_error = "timeout"
     except RateLimitError as exc:
         logger.warning("OpenAI rate limit conversation_id=%s: %s", conv.id, exc)
-        reply = (
-            "El servicio de IA está temporalmente saturado. Intenta de nuevo en unos minutos; "
-            "un asesor también puede ayudarte."
-        )
+        reply = agent_disruption_message("rate_limit", eff)
         conv.last_agent_llm_status = "error"
         conv.last_agent_llm_error = str(exc)[:900]
     except Exception as exc:  # noqa: BLE001
         if _looks_like_quota_error(exc):
             logger.warning("LLM quota conversation_id=%s: %s", conv.id, exc)
-            reply = gemini_quota_user_message(exc)
+            reply = agent_disruption_message("quota", eff)
         else:
             logger.exception("generate_assistant_reply failed conversation_id=%s", conv.id)
-            reply = (
-                "Disculpa, tuvimos un problema técnico al generar la respuesta. "
-                "Un asesor humano revisará tu mensaje y te contactará pronto."
-            )
+            reply = agent_disruption_message("technical", eff)
         conv.last_agent_llm_status = "error"
         conv.last_agent_llm_error = str(exc)[:900]
     await add_message(

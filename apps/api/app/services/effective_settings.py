@@ -79,6 +79,9 @@ class EffectiveSettings:
     buffer_between_appointments_minutes: int = 0
     reminder_hours_before: int = 24
     requires_id_document: bool = False
+    require_appointment_confirmation: bool = True
+    agent_response_language: str = "es"
+    agent_tone_style: str = "professional"
 
     # Caches de parseo (no participan en igualdad porque son derivados).
     _working_hours: WorkingHours = field(
@@ -230,6 +233,12 @@ async def build_effective_settings(
         maximum=14 * 24,
     )
     requires_id = bool((row.requires_id_document if row else None) or False)
+    require_confirm = _bool(
+        row.require_appointment_confirmation if row else None,
+        True,
+    )
+    agent_lang = ((row.agent_response_language if row else None) or "es").strip() or "es"
+    agent_tone = ((row.agent_tone_style if row else None) or "professional").strip() or "professional"
 
     working_hours = parse_working_hours(working_hours_raw, closed_dates_raw)
     services = parse_services(services_raw)
@@ -306,6 +315,9 @@ async def build_effective_settings(
         buffer_between_appointments_minutes=buffer_min,
         reminder_hours_before=reminder_h,
         requires_id_document=requires_id,
+        require_appointment_confirmation=require_confirm,
+        agent_response_language=agent_lang[:16],
+        agent_tone_style=agent_tone[:32],
         _working_hours=working_hours,
         _services=services,
         _welcome_menu=welcome_menu,

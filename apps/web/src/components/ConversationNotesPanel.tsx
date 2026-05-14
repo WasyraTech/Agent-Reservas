@@ -39,7 +39,9 @@ export function ConversationNotesPanel({ conversationId, initialNotes, initialTa
     try {
       const res = await fetch(`/api/internal/conversations/${conversationId}/panel`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           internal_notes: notes.trim() === "" ? null : notes,
           internal_tags: parseTags(tagsRaw),

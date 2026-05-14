@@ -1,9 +1,49 @@
+import { cookies } from "next/headers";
+
 import { getBackendUrl, getInternalApiKey } from "@/lib/env";
 
-const internalHeaders = (): HeadersInit => ({
-  "X-API-Key": getInternalApiKey(),
-  "X-Request-ID": typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `srv-${Date.now()}`,
-});
+const PANEL_SESSION_COOKIE = "ar_panel_session";
+
+async function internalHeaders(): Promise<HeadersInit> {
+  const h: Record<string, string> = {
+    "X-API-Key": getInternalApiKey(),
+    "X-Request-ID":
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `srv-${Date.now()}`,
+  };
+  try {
+    const jar = await cookies();
+    const tok = jar.get(PANEL_SESSION_COOKIE)?.value?.trim();
+    if (tok) {
+      h["X-Panel-Session"] = tok;
+    }
+  } catch {
+    /* cookies() fuera de request */
+  }
+  return h;
+}
+
+export type PanelUser = {
+  display_name: string;
+  role: "admin" | "operator";
+  phone_e164: string;
+};
+
+export async function fetchPanelMe(): Promise<PanelUser | null> {
+  try {
+    const res = await fetch(`${getBackendUrl()}/internal/panel/auth/me`, {
+      headers: await internalHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return null;
+    }
+    return res.json() as Promise<PanelUser>;
+  } catch {
+    return null;
+  }
+}
 
 export type ConversationSummary = {
   id: string;
@@ -15,6 +55,7 @@ export type ConversationSummary = {
   last_agent_llm_status: string;
   has_pending_handoff?: boolean;
   last_agent_llm_error_snippet?: string | null;
+  assigned_operator_id?: string | null;
 };
 
 export type ConversationDetail = {
@@ -57,6 +98,7 @@ export type ConversationDetail = {
     service_label: string | null;
     google_event_id: string | null;
   }[];
+  assigned_operator_id?: string | null;
 };
 
 export type AppointmentListItem = {
@@ -116,7 +158,7 @@ export async function fetchConversations(
   const q = new URLSearchParams();
   appendConvFilters(q, params);
   const res = await fetch(`${getBackendUrl()}/internal/conversations?${q}`, {
-    headers: internalHeaders(),
+    headers: await internalHeaders(),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -157,7 +199,7 @@ export async function fetchLeads(
   const q = new URLSearchParams();
   appendLeadFilters(q, params);
   const res = await fetch(`${getBackendUrl()}/internal/leads?${q}`, {
-    headers: internalHeaders(),
+    headers: await internalHeaders(),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -196,7 +238,7 @@ export async function fetchAppointments(
   const q = new URLSearchParams();
   appendAppointmentFilters(q, params);
   const res = await fetch(`${getBackendUrl()}/internal/appointments?${q}`, {
-    headers: internalHeaders(),
+    headers: await internalHeaders(),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -207,7 +249,7 @@ export async function fetchAppointments(
 
 export async function fetchConversation(id: string) {
   const res = await fetch(`${getBackendUrl()}/internal/conversations/${id}`, {
-    headers: internalHeaders(),
+    headers: await internalHeaders(),
     cache: "no-store",
   });
   if (!res.ok) {

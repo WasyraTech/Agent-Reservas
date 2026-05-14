@@ -15,12 +15,13 @@ import uuid
 import redis.asyncio as redis_async
 from sqlalchemy import select
 
-from app.agent.gemini_agent import _looks_like_quota_error, gemini_quota_user_message
+from app.agent.gemini_agent import _looks_like_quota_error
 from app.agent.tool_handlers import generate_assistant_reply
 from app.config import get_settings
 from app.constants import REPLY_JOB_QUEUE_KEY
 from app.db.session import SessionLocal
 from app.models import Conversation, Message, MessageDirection
+from app.services.agent_channel_voice import agent_disruption_message
 from app.services.conversation import add_message
 from app.services.effective_settings import build_effective_settings
 from app.services.twilio_outbound import send_whatsapp_text_reply
@@ -56,6 +57,7 @@ async def _process_job_payload(payload: str) -> None:
                 return
 
             body = last_in.body
+            eff = await build_effective_settings(session, conv.workspace_id)
             try:
                 async with asyncio.timeout(timeout):
                     reply = await generate_assistant_reply(
@@ -65,20 +67,15 @@ async def _process_job_payload(payload: str) -> None:
                 conv.last_agent_llm_error = None
             except TimeoutError:
                 logger.warning("reply worker timeout conversation_id=%s", cid)
-                reply = (
-                    "Tu mensaje llegó pero la respuesta automática tardó demasiado. "
-                    "Intenta de nuevo en un momento."
-                )
+                reply = agent_disruption_message("timeout", eff)
                 conv.last_agent_llm_status = "error"
                 conv.last_agent_llm_error = "timeout"
             except Exception as exc:  # noqa: BLE001
                 if _looks_like_quota_error(exc):
-                    reply = gemini_quota_user_message(exc)
+                    reply = agent_disruption_message("quota", eff)
                 else:
                     logger.exception("reply worker LLM error conversation_id=%s", cid)
-                    reply = (
-                        "Disculpa, tuvimos un problema técnico. Un asesor revisará tu mensaje."
-                    )
+                    reply = agent_disruption_message("technical", eff)
                 conv.last_agent_llm_status = "error"
                 conv.last_agent_llm_error = str(exc)[:900]
 
@@ -90,8 +87,8 @@ async def _process_job_payload(payload: str) -> None:
                 twilio_message_sid=None,
             )
 
-        eff = await build_effective_settings(session, conv.workspace_id)
-        await send_whatsapp_text_reply(eff=eff, conv=conv, body=reply)
+        eff_send = await build_effective_settings(session, conv.workspace_id)
+        await send_whatsapp_text_reply(eff=eff_send, conv=conv, body=reply)
 
 
 async def run_forever() -> None:

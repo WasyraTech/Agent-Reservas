@@ -69,6 +69,7 @@ export default async function CitasPage({ searchParams }: PageProps) {
             >
               <option value="">Todos</option>
               <option value="confirmed">Confirmadas</option>
+              <option value="pending_confirmation">Pend. confirmación</option>
               <option value="cancelled">Canceladas</option>
             </select>
           </div>
