@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
-from app.deps import verify_internal_api_key
+from app.deps import WorkspaceContext, get_workspace_context
 from app.models import (
     Appointment,
     Conversation,
@@ -23,9 +23,9 @@ from app.models import (
     Message,
 )
 
-router = APIRouter(
-    prefix="/internal", tags=["internal"], dependencies=[Depends(verify_internal_api_key)]
-)
+router = APIRouter(prefix="/internal", tags=["internal"])
+
+WsCtx = Annotated[WorkspaceContext, Depends(get_workspace_context)]
 
 
 class MessageOut(BaseModel):
@@ -225,7 +225,10 @@ def _conversation_filters(
 
 
 @router.get("/status", response_model=DeploymentStatus)
-async def deployment_status(db: Annotated[AsyncSession, Depends(get_db)]) -> DeploymentStatus:
+async def deployment_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _ws: WsCtx,
+) -> DeploymentStatus:
     await db.execute(text("SELECT 1"))
     return DeploymentStatus(
         api_version="0.1.0",
@@ -237,6 +240,7 @@ async def deployment_status(db: Annotated[AsyncSession, Depends(get_db)]) -> Dep
 
 @router.get("/conversations", response_model=list[ConversationSummary])
 async def list_conversations(
+    ws: WsCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -268,7 +272,8 @@ async def list_conversations(
         func.coalesce(count_sq.c.cnt, 0).label("message_count"),
         handoff_pending_sq.label("has_pending_handoff"),
     ).outerjoin(count_sq, count_sq.c.conversation_id == Conversation.id)
-    conds = _conversation_filters(q=q, status=status, date_from=date_from, date_to=date_to)
+    conds = [Conversation.workspace_id == ws.workspace_id]
+    conds.extend(_conversation_filters(q=q, status=status, date_from=date_from, date_to=date_to))
     if conds:
         stmt = stmt.where(and_(*conds))
     stmt = stmt.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit)
@@ -300,6 +305,7 @@ async def list_conversations(
 
 @router.get("/leads", response_model=list[LeadListItem])
 async def list_leads(
+    ws: WsCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -308,8 +314,10 @@ async def list_leads(
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
 ) -> list[LeadListItem]:
-    stmt = select(Lead, Conversation.twilio_from).join(
-        Conversation, Lead.conversation_id == Conversation.id
+    stmt = (
+        select(Lead, Conversation.twilio_from)
+        .join(Conversation, Lead.conversation_id == Conversation.id)
+        .where(Conversation.workspace_id == ws.workspace_id)
     )
     conds: list = []
     if q and q.strip():
@@ -392,6 +400,7 @@ class AppointmentListItem(BaseModel):
 
 @router.get("/appointments", response_model=list[AppointmentListItem])
 async def list_appointments(
+    ws: WsCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -399,8 +408,10 @@ async def list_appointments(
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
 ) -> list[AppointmentListItem]:
-    stmt = select(Appointment, Conversation.twilio_from).join(
-        Conversation, Appointment.conversation_id == Conversation.id
+    stmt = (
+        select(Appointment, Conversation.twilio_from)
+        .join(Conversation, Appointment.conversation_id == Conversation.id)
+        .where(Conversation.workspace_id == ws.workspace_id)
     )
     conds: list = []
     if status and status.strip():
@@ -442,11 +453,15 @@ async def list_appointments(
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 async def get_conversation(
     conversation_id: UUID,
+    ws: WsCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ConversationDetail:
     stmt = (
         select(Conversation)
-        .where(Conversation.id == conversation_id)
+        .where(
+            Conversation.id == conversation_id,
+            Conversation.workspace_id == ws.workspace_id,
+        )
         .options(
             selectinload(Conversation.messages),
             selectinload(Conversation.lead),
@@ -489,10 +504,14 @@ async def get_conversation(
 @router.patch("/conversations/{conversation_id}/panel", response_model=ConversationPanelOut)
 async def patch_conversation_panel(
     conversation_id: UUID,
+    ws: WsCtx,
     body: ConversationPanelPatch,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ConversationPanelOut:
-    stmt = select(Conversation).where(Conversation.id == conversation_id)
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.workspace_id == ws.workspace_id,
+    )
     result = await db.execute(stmt)
     conv = result.scalar_one_or_none()
     if not conv:
@@ -515,10 +534,14 @@ async def patch_conversation_panel(
 @router.post("/conversations/{conversation_id}/handoff", response_model=HandoffOut)
 async def create_handoff(
     conversation_id: UUID,
+    ws: WsCtx,
     body: HandoffCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HandoffOut:
-    stmt = select(Conversation).where(Conversation.id == conversation_id)
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.workspace_id == ws.workspace_id,
+    )
     result = await db.execute(stmt)
     conv = result.scalar_one_or_none()
     if not conv:
@@ -538,6 +561,7 @@ async def create_handoff(
 @router.post("/conversations/{conversation_id}/handoff/resolve")
 async def resolve_pending_handoff(
     conversation_id: UUID,
+    ws: WsCtx,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, object]:
     """Marca handoffs pendientes como resueltos y reabre la conversación si estaba en handed_off."""
@@ -555,7 +579,12 @@ async def resolve_pending_handoff(
     for h in pending_list:
         h.status = HandoffStatus.resolved
         h.resolved_at = now
-    conv_row = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conv_row = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.workspace_id == ws.workspace_id,
+        )
+    )
     conv = conv_row.scalar_one_or_none()
     if conv is not None and conv.status == ConversationStatus.handed_off:
         conv.status = ConversationStatus.open

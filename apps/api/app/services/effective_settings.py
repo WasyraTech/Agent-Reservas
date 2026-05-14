@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
+import uuid
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.constants import DEFAULT_WORKSPACE_ID
 from app.models import AppConfiguration
 from app.services.booking_config import (
     BookingPolicy,
@@ -21,9 +24,7 @@ from app.services.booking_config import (
     parse_welcome_menu,
     parse_working_hours,
 )
-
-ROW_ID = 1
-
+from app.services.secret_value import resolve_config_secret
 
 def webhook_path() -> str:
     return "/webhooks/twilio/whatsapp"
@@ -138,14 +139,22 @@ def _int(db_val: int | None, default: int, *, minimum: int = 1, maximum: int | N
     return v
 
 
-async def get_app_config_row(session: AsyncSession) -> AppConfiguration | None:
-    return await session.get(AppConfiguration, ROW_ID)
+async def _get_app_config_for_workspace(
+    session: AsyncSession, workspace_id: uuid.UUID
+) -> AppConfiguration | None:
+    stmt = select(AppConfiguration).where(AppConfiguration.workspace_id == workspace_id).limit(1)
+    return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def ensure_app_config_row(session: AsyncSession) -> AppConfiguration:
-    row = await session.get(AppConfiguration, ROW_ID)
+async def ensure_app_config_row(
+    session: AsyncSession, workspace_id: uuid.UUID | None = None
+) -> AppConfiguration:
+    ws = workspace_id or DEFAULT_WORKSPACE_ID
+    row = await _get_app_config_for_workspace(session, ws)
     if row is None:
-        row = AppConfiguration(id=ROW_ID)
+        mid = await session.scalar(select(func.coalesce(func.max(AppConfiguration.id), 0)))
+        next_id = int(mid or 0) + 1
+        row = AppConfiguration(id=next_id, workspace_id=ws)
         session.add(row)
         await session.flush()
     return row
@@ -158,9 +167,12 @@ def _provider(db_val: str | None, env_val: str) -> str:
     return "openai"
 
 
-async def build_effective_settings(session: AsyncSession) -> EffectiveSettings:
+async def build_effective_settings(
+    session: AsyncSession, workspace_id: uuid.UUID | None = None
+) -> EffectiveSettings:
+    ws = workspace_id or DEFAULT_WORKSPACE_ID
     env = get_settings()
-    row = await get_app_config_row(session)
+    row = await _get_app_config_for_workspace(session, ws)
     model_default = "gpt-4o-mini"
     openai_model = _text(row.openai_model if row else None, env.openai_model) or model_default
     gemini_default = "gemini-2.5-flash"
@@ -225,16 +237,22 @@ async def build_effective_settings(session: AsyncSession) -> EffectiveSettings:
 
     return EffectiveSettings(
         twilio_account_sid=_text(row.twilio_account_sid if row else None, env.twilio_account_sid),
-        twilio_auth_token=_text(row.twilio_auth_token if row else None, env.twilio_auth_token),
+        twilio_auth_token=resolve_config_secret(
+            _text(row.twilio_auth_token if row else None, env.twilio_auth_token)
+        ),
         webhook_base_url=_text(row.webhook_base_url if row else None, env.webhook_base_url),
         twilio_validate_signature=_bool(
             row.twilio_validate_signature if row else None,
             env.twilio_validate_signature,
         ),
         llm_provider=_provider(row.llm_provider if row else None, env.llm_provider),
-        openai_api_key=_text(row.openai_api_key if row else None, env.openai_api_key),
+        openai_api_key=resolve_config_secret(
+            _text(row.openai_api_key if row else None, env.openai_api_key)
+        ),
         openai_model=openai_model,
-        gemini_api_key=_text(row.gemini_api_key if row else None, env.gemini_api_key),
+        gemini_api_key=resolve_config_secret(
+            _text(row.gemini_api_key if row else None, env.gemini_api_key)
+        ),
         gemini_model=gemini_model,
         agent_business_summary=_text(
             row.agent_business_summary if row else None,
@@ -262,12 +280,11 @@ async def build_effective_settings(session: AsyncSession) -> EffectiveSettings:
             env.agent_off_hours_message,
         ),
         agent_hard_rules=_text(row.agent_hard_rules if row else None, env.agent_hard_rules),
-        google_calendar_id=_text(
-            row.google_calendar_id if row else None, env.google_calendar_id
+        google_calendar_id=resolve_config_secret(
+            _text(row.google_calendar_id if row else None, env.google_calendar_id)
         ),
-        google_service_account_json=_text(
-            row.google_service_account_json if row else None,
-            env.google_service_account_json,
+        google_service_account_json=resolve_config_secret(
+            _text(row.google_service_account_json if row else None, env.google_service_account_json)
         ),
         business_name=business_name,
         business_type=business_type,

@@ -6,7 +6,19 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.constants import DEFAULT_WORKSPACE_ID
 from app.main import app
+
+
+@pytest.fixture
+def patch_workspace_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _resolve(_session: Any, *, twilio_to: str) -> uuid.UUID:
+        return DEFAULT_WORKSPACE_ID
+
+    monkeypatch.setattr(
+        "app.webhooks.twilio_whatsapp.resolve_workspace_id_for_twilio_to",
+        _resolve,
+    )
 
 
 @pytest.mark.asyncio
@@ -20,6 +32,7 @@ async def test_metrics_endpoint() -> None:
 @pytest.mark.asyncio
 async def test_twilio_webhook_forbidden_when_signature_invalid(
     monkeypatch: pytest.MonkeyPatch,
+    patch_workspace_resolve: None,
 ) -> None:
     async def bad_validate(*_a: Any, **_k: Any) -> bool:
         return False
@@ -42,11 +55,14 @@ async def test_twilio_webhook_forbidden_when_signature_invalid(
 
 
 @pytest.mark.asyncio
-async def test_twilio_webhook_success_mocked_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_twilio_webhook_success_mocked_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_workspace_resolve: None,
+) -> None:
     async def ok_validate(*_a: Any, **_k: Any) -> bool:
         return True
 
-    async def fake_process(_session: Any, _form: dict[str, Any]) -> str:
+    async def fake_process(_session: Any, _form: dict[str, Any], *, workspace_id: Any) -> str:
         return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>ok</Message></Response>'
 
     monkeypatch.setattr(

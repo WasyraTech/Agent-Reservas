@@ -100,17 +100,22 @@ async def init_db(*, alembic_timeout: float = 180.0) -> None:
         )
         raise
 
+    from app.constants import DEFAULT_WORKSPACE_ID
     from app.services.effective_settings import ensure_app_config_row
+    from app.services.workspace_bootstrap import maybe_bootstrap_workspace_api_key
+    from app.services.workspace_resolve import ensure_default_workspace_row
 
-    _log.info("Ensuring app_config row...")
+    _log.info("Ensuring default workspace + app_config + API key bootstrap...")
     try:
         async with SessionLocal() as session:
             async with session.begin():
-                await ensure_app_config_row(session)
+                await ensure_default_workspace_row(session)
+                await ensure_app_config_row(session, DEFAULT_WORKSPACE_ID)
+                await maybe_bootstrap_workspace_api_key(session)
     except Exception:
-        _log.error("ensure_app_config_row falló:\n%s", traceback.format_exc())
+        _log.error("workspace/app_config bootstrap falló:\n%s", traceback.format_exc())
         raise
-    _log.info("app_config row OK.")
+    _log.info("workspace/app_config OK.")
 
 
 def _safe_host(url: str) -> str:

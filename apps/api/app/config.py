@@ -58,8 +58,18 @@ class Settings(BaseSettings):
     google_service_account_json: str = ""
 
     internal_api_key: str = "dev-internal-key"
+    # Pepper para HMAC de workspace_api_keys (cámbialo en producción).
+    internal_api_key_pepper: str = "change-me-in-production"
+
+    redis_url: str = ""
 
     cors_origins: str = "http://localhost:3000"
+
+    llm_timeout_seconds: float = 45.0
+    webhook_processing_timeout_seconds: float = 25.0
+
+    # Si true y REDIS_URL está definida: webhook encola respuesta; worker envía vía REST Twilio.
+    webhook_async_replies: bool = False
 
 
 @lru_cache

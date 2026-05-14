@@ -18,6 +18,7 @@ from app.agent.tool_handlers import (
     build_system_prompt,
     execute_tool,
 )
+from app.config import get_settings
 from app.models import Conversation, MessageDirection
 from app.services.conversation import list_recent_messages
 from app.services.effective_settings import EffectiveSettings
@@ -101,9 +102,13 @@ async def _generate_with_quota_retry(
         return client.models.generate_content(model=model, contents=contents, config=config)
 
     last: BaseException | None = None
+    timeout_s = get_settings().llm_timeout_seconds
     for attempt in range(max_attempts):
         try:
-            return await asyncio.to_thread(call)
+            async with asyncio.timeout(timeout_s):
+                return await asyncio.to_thread(call)
+        except TimeoutError:
+            raise
         except Exception as exc:  # noqa: BLE001
             if not _looks_like_quota_error(exc):
                 raise
@@ -269,6 +274,12 @@ async def generate_with_gemini(
 
             await asyncio.to_thread(_close)
     except Exception as exc:  # noqa: BLE001
+        if isinstance(exc, TimeoutError):
+            logger.warning("Gemini request timeout: %s", exc)
+            return (
+                "La respuesta del modelo tardó demasiado. Intenta de nuevo en unos segundos "
+                "o un asesor te ayudará."
+            )
         if _looks_like_quota_error(exc):
             logger.warning("Gemini quota exhausted after retries: %s", exc)
             return gemini_quota_user_message(exc)

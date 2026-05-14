@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -10,8 +11,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.integrations import google_calendar as gcal
 from app.models import (
     Appointment,
@@ -567,8 +570,18 @@ async def _book_appointment(
         notes=(parsed.notes or "").strip() or None,
         google_event_id=None,
     )
-    session.add(appt)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(appt)
+            await session.flush()
+    except IntegrityError:
+        return {
+            "ok": False,
+            "error": "slot_conflict_database",
+            "message": (
+                "Ese horario acaba de ocuparse. Vuelve a llamar get_available_slots y elige otro hueco."
+            ),
+        }
 
     cal_id = eff.google_calendar_id.strip()
     sa_json = eff.google_service_account_json.strip()
@@ -801,7 +814,7 @@ async def execute_tool(
         )
         return json.dumps({"ok": False, "error": "invalid_json_arguments"})
 
-    eff_r = eff or await build_effective_settings(session)
+    eff_r = eff or await build_effective_settings(session, conversation.workspace_id)
     result: dict[str, Any] | None = None
     err: str | None = None
     try:
@@ -1009,7 +1022,7 @@ async def generate_assistant_reply(
     conversation: Conversation,
     user_text: str,
 ) -> str:
-    eff = await build_effective_settings(session)
+    eff = await build_effective_settings(session, conversation.workspace_id)
     provider = eff.llm_provider.lower()
 
     if provider == "gemini":
@@ -1056,13 +1069,15 @@ async def generate_assistant_reply(
 
     client = AsyncOpenAI(api_key=eff.openai_api_key)
     max_iterations = 8
+    llm_timeout = get_settings().llm_timeout_seconds
     for _ in range(max_iterations):
-        completion = await client.chat.completions.create(
-            model=eff.openai_model,
-            messages=openai_messages,
-            tools=TOOL_DEFINITIONS,
-            tool_choice="auto",
-        )
+        async with asyncio.timeout(llm_timeout):
+            completion = await client.chat.completions.create(
+                model=eff.openai_model,
+                messages=openai_messages,
+                tools=TOOL_DEFINITIONS,
+                tool_choice="auto",
+            )
         choice = completion.choices[0].message
         if choice.tool_calls:
             openai_messages.append(

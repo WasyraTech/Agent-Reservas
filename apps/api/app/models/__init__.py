@@ -19,7 +19,33 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.constants import DEFAULT_WORKSPACE_ID
 from app.db.base import Base
+
+
+class Workspace(Base):
+    """Organización / tenant. El número WhatsApp Twilio `To` puede mapear a un workspace."""
+
+    __tablename__ = "workspaces"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(160), default="Default")
+    twilio_whatsapp_to: Mapped[str | None] = mapped_column(String(96), unique=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceApiKey(Base):
+    """Claves de panel hasheadas (HMAC-SHA256); el valor en claro no se guarda."""
+
+    __tablename__ = "workspace_api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    key_hmac: Mapped[str] = mapped_column(String(128), index=True)
+    label: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ConversationStatus(enum.StrEnum):
@@ -41,10 +67,20 @@ class HandoffStatus(enum.StrEnum):
 class Conversation(Base):
     __tablename__ = "conversations"
     __table_args__ = (
-        UniqueConstraint("twilio_from", "twilio_to", name="uq_conversations_from_to"),
+        UniqueConstraint(
+            "workspace_id",
+            "twilio_from",
+            "twilio_to",
+            name="uq_conversations_workspace_from_to",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        index=True,
+        default=DEFAULT_WORKSPACE_ID,
+    )
     twilio_from: Mapped[str] = mapped_column(String(64), index=True)
     twilio_to: Mapped[str] = mapped_column(String(64), index=True)
     account_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -164,11 +200,17 @@ class Appointment(Base):
 
 
 class AppConfiguration(Base):
-    """Una sola fila (id=1): credenciales opcionales que sobrescriben variables de entorno."""
+    """Configuración por workspace (antes una sola fila id=1)."""
 
     __tablename__ = "app_configuration"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        default=DEFAULT_WORKSPACE_ID,
+    )
     twilio_account_sid: Mapped[str | None] = mapped_column(Text, nullable=True)
     twilio_auth_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     webhook_base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)

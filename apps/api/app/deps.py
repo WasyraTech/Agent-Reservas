@@ -1,39 +1,54 @@
-from fastapi import Header, HTTPException, status
+from __future__ import annotations
+
+import secrets
+import uuid
+from dataclasses import dataclass
+from typing import Annotated
+
+from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.constants import DEFAULT_WORKSPACE_ID
+from app.db.session import get_db
+from app.models import WorkspaceApiKey
+from app.services.api_key_hash import hash_internal_api_key
 
 
-async def verify_internal_api_key(
+@dataclass(frozen=True)
+class WorkspaceContext:
+    workspace_id: uuid.UUID
+
+
+async def get_workspace_context(
+    db: Annotated[AsyncSession, Depends(get_db)],
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     authorization: str | None = Header(default=None),
-) -> None:
-    """Autoriza acceso a `/internal/*` por shared secret.
+) -> WorkspaceContext:
+    """Resuelve workspace por clave interna (legacy env o HMAC en `workspace_api_keys`)."""
+    presented = (x_api_key or "").strip()
+    if not presented and authorization and authorization.startswith("Bearer "):
+        presented = authorization.removeprefix("Bearer ").strip()
 
-    Alcance actual (**single-tenant**): cualquier llamada que presente la
-    `INTERNAL_API_KEY` correcta puede leer todas las conversaciones, mensajes,
-    leads y handoffs del despliegue. No hay filtro por `workspace_id`/`tenant_id`
-    en las rutas `/internal/*`. Esto es aceptable mientras el panel Next.js
-    actúe como **único cliente** confiable detrás del shared secret.
-
-    Para soportar multi-tenant en el futuro hace falta:
-      1. Modelar `workspace_id` en `conversations`, `leads`, etc.
-      2. Emitir API keys por workspace (no una sola global).
-      3. Filtrar consultas en `app/routers/internal.py` por el workspace
-         resuelto desde la key.
-
-    Si la API se expone fuera del backend del panel, asumir que cualquier
-    holder de la key lee todo el tráfico de WhatsApp y todos los leads.
-    """
-    expected = get_settings().internal_api_key
+    settings = get_settings()
+    expected = (settings.internal_api_key or "").strip()
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="INTERNAL_API_KEY not configured",
         )
-    if x_api_key and x_api_key == expected:
-        return
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.removeprefix("Bearer ").strip()
-        if token == expected:
-            return
+
+    if not presented:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if secrets.compare_digest(presented, expected):
+        return WorkspaceContext(workspace_id=DEFAULT_WORKSPACE_ID)
+
+    h = hash_internal_api_key(presented, pepper=settings.internal_api_key_pepper)
+    stmt = select(WorkspaceApiKey.workspace_id).where(WorkspaceApiKey.key_hmac == h).limit(2)
+    rows = list((await db.execute(stmt)).scalars().all())
+    if len(rows) == 1:
+        return WorkspaceContext(workspace_id=rows[0])
+
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.deps import verify_internal_api_key
+from app.deps import WorkspaceContext, get_workspace_context
 from app.services.booking_config import BUSINESS_TYPES, DEFAULT_TIMEZONE
 from app.services.catalog_import import parse_catalog_bytes
 from app.services.effective_settings import build_effective_settings, ensure_app_config_row
@@ -15,8 +15,9 @@ from app.services.effective_settings import build_effective_settings, ensure_app
 router = APIRouter(
     prefix="/internal/settings",
     tags=["settings"],
-    dependencies=[Depends(verify_internal_api_key)],
 )
+
+WsCtx = Annotated[WorkspaceContext, Depends(get_workspace_context)]
 
 
 class SettingsPublic(BaseModel):
@@ -191,13 +192,17 @@ def _public_from_effective(eff) -> SettingsPublic:
 
 
 @router.get("", response_model=SettingsPublic)
-async def get_workspace_settings(db: Annotated[AsyncSession, Depends(get_db)]) -> SettingsPublic:
-    eff = await build_effective_settings(db)
+async def get_workspace_settings(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    ws: WsCtx,
+) -> SettingsPublic:
+    eff = await build_effective_settings(db, ws.workspace_id)
     return _public_from_effective(eff)
 
 
 @router.post("/agent-catalog/parse", response_model=CatalogParseOut)
 async def parse_agent_catalog_upload(
+    _ws: WsCtx,
     file: UploadFile = File(...),
 ) -> CatalogParseOut:
     """Convierte CSV o Excel (.xlsx) en líneas «celda | celda | …» para pegar en el catálogo."""
@@ -263,8 +268,9 @@ _BOOL_FIELDS: tuple[str, ...] = ("requires_id_document",)
 async def put_workspace_settings(
     body: SettingsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    ws: WsCtx,
 ) -> SettingsPublic:
-    row = await ensure_app_config_row(db)
+    row = await ensure_app_config_row(db, ws.workspace_id)
     data = body.model_dump(exclude_unset=True)
 
     def norm_opt_str(v: str | None) -> str | None:
@@ -293,5 +299,5 @@ async def put_workspace_settings(
     # Validación leve para business_type: si llega vacío o desconocido, se guarda tal cual
     # (el frontend muestra el catálogo `business_type_choices`).
     await db.commit()
-    eff = await build_effective_settings(db)
+    eff = await build_effective_settings(db, ws.workspace_id)
     return _public_from_effective(eff)

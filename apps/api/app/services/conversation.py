@@ -28,11 +28,13 @@ async def get_inbound_by_twilio_sid(
 async def get_or_create_conversation(
     session: AsyncSession,
     *,
+    workspace_id: uuid.UUID,
     twilio_from: str,
     twilio_to: str,
     account_sid: str | None,
 ) -> Conversation:
     stmt = select(Conversation).where(
+        Conversation.workspace_id == workspace_id,
         Conversation.twilio_from == twilio_from,
         Conversation.twilio_to == twilio_to,
     )
@@ -41,6 +43,7 @@ async def get_or_create_conversation(
     if conv:
         return conv
     conv = Conversation(
+        workspace_id=workspace_id,
         twilio_from=twilio_from,
         twilio_to=twilio_to,
         account_sid=account_sid,

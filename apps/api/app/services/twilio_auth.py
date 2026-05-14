@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from twilio.request_validator import RequestValidator
@@ -11,8 +13,9 @@ async def validate_twilio_request_async(
     request: Request,
     form_dict: dict[str, str],
     session: AsyncSession,
+    workspace_id: uuid.UUID,
 ) -> bool:
-    eff = await build_effective_settings(session)
+    eff = await build_effective_settings(session, workspace_id)
     if not eff.twilio_validate_signature:
         return True
     token = eff.twilio_auth_token

@@ -41,6 +41,24 @@ services:
     depends_on:
       - api
 
+  # Respuestas async (cola Redis + Twilio REST). Requiere WEBHOOK_ASYNC_REPLIES=true en `.env`.
+  # Arranque: docker compose --profile worker up -d
+  worker:
+    profiles: ["worker"]
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    command: ["python", "-m", "app.workers.reply_queue_worker"]
+    depends_on:
+      redis:
+        condition: service_started
+      api:
+        condition: service_started
+
   # Túnel HTTPS público → API (Twilio webhook). Opcional: no arranca salvo perfil `tunnel`.
   # Uso: docker compose --profile tunnel up tunnel
   # La URL aparece en logs (línea trycloudflare.com). Cópiala a WEBHOOK_BASE_URL en /configuracion.
