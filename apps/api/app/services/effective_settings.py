@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
-import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +11,12 @@ from app.config import get_settings
 from app.constants import DEFAULT_WORKSPACE_ID
 from app.models import AppConfiguration
 from app.services.booking_config import (
-    BookingPolicy,
     DEFAULT_DURATION_MINUTES,
     DEFAULT_MAX_ADVANCE_DAYS,
     DEFAULT_MIN_LEAD_TIME_MINUTES,
     DEFAULT_SLOT_STEP_MINUTES,
     DEFAULT_TIMEZONE,
+    BookingPolicy,
     Service,
     WelcomeMenu,
     WorkingHours,
@@ -25,6 +25,7 @@ from app.services.booking_config import (
     parse_working_hours,
 )
 from app.services.secret_value import resolve_config_secret
+
 
 def webhook_path() -> str:
     return "/webhooks/twilio/whatsapp"
@@ -238,7 +239,8 @@ async def build_effective_settings(
         True,
     )
     agent_lang = ((row.agent_response_language if row else None) or "es").strip() or "es"
-    agent_tone = ((row.agent_tone_style if row else None) or "professional").strip() or "professional"
+    row_tone = row.agent_tone_style if row else None
+    agent_tone = (row_tone or "professional").strip() or "professional"
 
     working_hours = parse_working_hours(working_hours_raw, closed_dates_raw)
     services = parse_services(services_raw)

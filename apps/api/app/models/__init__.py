@@ -147,7 +147,7 @@ class Conversation(Base):
     messages: Mapped[list[Message]] = relationship(back_populates="conversation")
     lead: Mapped[Lead | None] = relationship(back_populates="conversation", uselist=False)
     handoffs: Mapped[list[Handoff]] = relationship(back_populates="conversation")
-    appointments: Mapped[list["Appointment"]] = relationship(
+    appointments: Mapped[list[Appointment]] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",
     )
@@ -239,7 +239,10 @@ class Appointment(Base):
     service_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

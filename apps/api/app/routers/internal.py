@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, exists, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,6 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.deps import get_internal_caller
-from app.panel_access import InternalCaller
 from app.models import (
     Appointment,
     Conversation,
@@ -24,6 +23,7 @@ from app.models import (
     Message,
     PanelOperator,
 )
+from app.panel_access import InternalCaller
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 

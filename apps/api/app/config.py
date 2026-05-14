@@ -65,7 +65,7 @@ class Settings(BaseSettings):
 
     # Twilio Verify (OTP panel). SID tipo VA…
     twilio_verify_service_sid: str = ""
-    # Canal de envío: sms (por defecto) o whatsapp (requiere WhatsApp configurado en ese servicio Verify).
+    # Canal: sms (defecto) o whatsapp (Verify + WhatsApp en Twilio Console).
     twilio_verify_channel: str = "sms"
 
     @field_validator("twilio_verify_channel", mode="before")

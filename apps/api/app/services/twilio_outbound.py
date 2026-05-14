@@ -11,7 +11,12 @@ from app.services.effective_settings import EffectiveSettings
 logger = logging.getLogger(__name__)
 
 
-async def send_whatsapp_text_reply(*, eff: EffectiveSettings, conv: Conversation, body: str) -> None:
+async def send_whatsapp_text_reply(
+    *,
+    eff: EffectiveSettings,
+    conv: Conversation,
+    body: str,
+) -> None:
     """Envía un mensaje saliente por la API REST (WhatsApp sandbox / prod)."""
     sid = (eff.twilio_account_sid or "").strip()
     token = (eff.twilio_auth_token or "").strip()

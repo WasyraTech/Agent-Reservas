@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.config import cors_origin_list
-from app.db.session import engine, init_db, SessionLocal
+from app.db.session import SessionLocal, engine, init_db
 from app.logging_setup import configure_logging
 from app.middleware.correlation_id import CorrelationIdMiddleware, RequestIdLogFilter
 from app.rate_limit import limiter

@@ -1,23 +1,4 @@
-from __future__ import annotations
-
-import secrets
-import uuid
-from dataclasses import dataclass
-from typing import Annotated, Literal
-
-from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.config import get_settings
-from app.constants import DEFAULT_WORKSPACE_ID
-from app.db.session import get_db
-from app.models import Workspace, WorkspaceApiKey
-from app.panel_access import InternalCaller, resolve_session_operator
-from app.services.api_key_hash import hash_internal_api_key
-
-
-@dataclass(frozen=True)
+from __future__ import annotationsimport secretsimport uuidfrom dataclasses import dataclassfrom typing import Annotated, Literalfrom fastapi import Depends, Header, HTTPException, statusfrom sqlalchemy import selectfrom sqlalchemy.ext.asyncio import AsyncSessionfrom app.config import get_settingsfrom app.constants import DEFAULT_WORKSPACE_IDfrom app.db.session import get_dbfrom app.models import Workspace, WorkspaceApiKeyfrom app.panel_access import InternalCaller, resolve_session_operatorfrom app.services.api_key_hash import hash_internal_api_key@dataclass(frozen=True)
 class WorkspaceContext:
     workspace_id: uuid.UUID
     auth_kind: Literal["master", "workspace_key"]

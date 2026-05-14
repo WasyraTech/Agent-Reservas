@@ -126,7 +126,7 @@ def psycopg_connect_args(url: str) -> dict:
 
 
 def asyncpg_pgbouncer_kwargs(url: str) -> dict[str, int]:
-    """`connect_args` para `create_async_engine` cuando el destino es pgBouncer en transaction mode."""
+    """Argumentos de conexión asyncpg con pgBouncer en transaction mode."""
     if not is_pgbouncer_transaction_mode(url):
         return {}
     # asyncpg requiere desactivar TODO el caché de prepared statements en transaction mode.

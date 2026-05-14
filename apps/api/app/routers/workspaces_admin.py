@@ -13,11 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.session import get_db
 from app.deps import WorkspaceContext, get_workspace_context
 from app.models import Workspace, WorkspaceApiKey
 from app.services.api_key_hash import hash_internal_api_key
-from app.config import get_settings
 
 router = APIRouter(prefix="/internal/workspaces", tags=["workspaces"])
 
@@ -35,7 +35,10 @@ def _require_master(ws: WorkspaceContext) -> None:
 def _ensure_workspace_scope(ws: WorkspaceContext, target: uuid.UUID) -> None:
     if ws.is_master or ws.workspace_id == target:
         return
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a este workspace.")
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Sin acceso a este workspace.",
+    )
 
 
 class WorkspaceOut(BaseModel):

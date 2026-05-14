@@ -14,9 +14,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Estados que bloquean huecos en agenda (solape DB + constraint EXCLUDE).
-_APPOINTMENT_BLOCKS_SLOT: tuple[str, ...] = ("confirmed", "pending_confirmation")
-
 from app.config import get_settings
 from app.integrations import google_calendar as gcal
 from app.models import (
@@ -35,6 +32,9 @@ from app.services.agent_channel_voice import (
 )
 from app.services.conversation import list_recent_messages
 from app.services.effective_settings import EffectiveSettings, build_effective_settings
+
+# Estados que bloquean huecos en agenda (solape DB + constraint EXCLUDE).
+_APPOINTMENT_BLOCKS_SLOT: tuple[str, ...] = ("confirmed", "pending_confirmation")
 
 
 def normalize_phone(value: str) -> str:
@@ -88,7 +88,10 @@ class BookAppointmentArgs(BaseModel):
 
 class ConfirmAppointmentArgs(BaseModel):
     appointment_id: str = Field(
-        description="UUID devuelto por book_appointment cuando la cita quedó pendiente de confirmación."
+        description=(
+            "UUID devuelto por book_appointment cuando la cita quedó "
+            "pendiente de confirmación."
+        ),
     )
 
 
@@ -97,7 +100,11 @@ class ListMyAppointmentsArgs(BaseModel):
 
 
 class CancelAppointmentArgs(BaseModel):
-    appointment_id: str = Field(description="UUID de la cita (devuelto por book_appointment o list_my_appointments).")
+    appointment_id: str = Field(
+        description=(
+            "UUID de la cita (devuelto por book_appointment o list_my_appointments)."
+        ),
+    )
 
 
 class RescheduleAppointmentArgs(BaseModel):
@@ -153,10 +160,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "book_appointment",
             "description": (
-                "Crea la reserva en el horario acordado. Si el negocio exige confirmación explícita "
-                "(panel), la cita queda pendiente hasta que el cliente confirme y entonces debes "
-                "llamar confirm_appointment. Si no, queda confirmada de inmediato y se crea el "
-                "evento en Google Calendar cuando aplique. Falla si el hueco ya está ocupado."
+                "Crea la reserva en el horario acordado. Si el negocio exige confirmación "
+                "explícita (panel), la cita queda pendiente hasta que el cliente confirme y "
+                "entonces debes llamar confirm_appointment. Si no, queda confirmada de inmediato "
+                "y se crea el evento en Google Calendar cuando aplique. Falla si el hueco ya "
+                "está ocupado."
             ),
             "parameters": {
                 "type": "object",
@@ -164,9 +172,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "start_datetime_iso": {
                         "type": "string",
                         "description": (
-                            "Copia book_start_datetime_iso del slot elegido en get_available_slots "
-                            "(misma cadena). No uses otra fecha ni la de «hoy» salvo que el usuario "
-                            "haya cambiado de día."
+                            "Copia book_start_datetime_iso del slot elegido en "
+                            "get_available_slots (misma cadena). No uses otra fecha ni la de "
+                            "«hoy» salvo que el usuario haya cambiado de día."
                         ),
                     },
                     "end_datetime_iso": {
@@ -210,7 +218,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "properties": {
                     "appointment_id": {
                         "type": "string",
-                        "description": "UUID tal cual lo devolvió book_appointment en estado pendiente.",
+                        "description": (
+                            "UUID tal cual lo devolvió book_appointment en estado pendiente."
+                        ),
                     },
                 },
                 "required": ["appointment_id"],
@@ -380,7 +390,10 @@ def _slot_overlaps(
 def _reject_if_slot_date_in_past(
     d: date, tz: ZoneInfo, *, requested_date: str, tz_name: str
 ) -> dict[str, Any] | None:
-    """None si la fecha es hoy o futura en la zona dada; si no, payload de error para la herramienta."""
+    """None si la fecha es hoy o futura en la zona dada.
+
+    Si no, payload de error para la herramienta.
+    """
     today = datetime.now(tz).date()
     if d >= today:
         return None
@@ -628,7 +641,8 @@ async def _book_appointment(
             "ok": False,
             "error": "slot_conflict_database",
             "message": (
-                "Ese horario acaba de ocuparse. Vuelve a llamar get_available_slots y elige otro hueco."
+                "Ese horario acaba de ocuparse. Vuelve a llamar get_available_slots "
+                "y elige otro hueco."
             ),
         }
 

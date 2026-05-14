@@ -25,7 +25,10 @@ class InternalCaller:
         return self.operator.role == PanelOperatorRole.admin
 
     def conversation_visibility_clause(self):
-        """Operadores: conversaciones sin asignar o asignadas a ellos. Admins / API key: sin filtro."""
+        """Operadores: sin asignar o asignadas a ellos.
+
+        Admins / API key: sin filtro.
+        """
         if self.is_full_access:
             return None
         assert self.operator is not None

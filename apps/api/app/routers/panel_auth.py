@@ -7,10 +7,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from twilio.base.exceptions import TwilioRestException
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from twilio.base.exceptions import TwilioRestException
 
 from app.config import get_settings
 from app.db.session import get_db
@@ -89,7 +89,10 @@ async def auth_start(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(require_master_internal_api_key)],
 ) -> dict[str, str]:
-    """Envía OTP (Twilio Verify: SMS o WhatsApp según TWILIO_VERIFY_CHANNEL) si el número ya tiene cuenta."""
+    """Envía OTP (Twilio Verify: SMS o WhatsApp según TWILIO_VERIFY_CHANNEL).
+
+    Solo si el número ya tiene cuenta.
+    """
     try:
         phone = normalize_e164(body.phone_e164)
     except ValueError as exc:

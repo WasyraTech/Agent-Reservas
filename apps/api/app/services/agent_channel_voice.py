@@ -29,19 +29,22 @@ def _core_message(kind: ErrorKind, *, lang: str) -> str:
         if kind == "timeout":
             return (
                 "The assistant is taking longer than usual to respond. "
-                "You can send your message again in a few minutes; a teammate can also review this chat."
+                "You can send your message again in a few minutes; "
+                "a teammate can also review this chat."
             )
         if kind in ("quota", "rate_limit"):
             return (
                 "The AI service is temporarily at capacity. Please try again in a few minutes."
             )
         return (
-            "We hit a technical issue while processing your message. A teammate will review it shortly."
+            "We hit a technical issue while processing your message. "
+            "A teammate will review it shortly."
         )
     if kind == "timeout":
         return (
             "La respuesta automática está tardando más de lo habitual. "
-            "Puede reenviar su mensaje en unos minutos; un asesor también puede revisar esta conversación."
+            "Puede reenviar su mensaje en unos minutos; "
+            "un asesor también puede revisar esta conversación."
         )
     if kind in ("quota", "rate_limit"):
         return (
@@ -86,12 +89,14 @@ def channel_voice_system_section(eff: EffectiveSettings) -> str:
             "- Responde principalmente en **inglés** salvo que el usuario escriba de forma "
             "sostenida en otro idioma.\n"
             f"- Estilo: {tone_hint}\n"
-            "- Mantén la misma voz cuando informes de retrasos, límites de servicio o fallos técnicos."
+            "- Mantén la misma voz cuando informes de retrasos, "
+            "límites de servicio o fallos técnicos."
         )
     return (
         "\n\n## Idioma y tono del canal (panel)\n"
         "- Responde principalmente en **español** salvo que el usuario escriba de forma "
         "sostenida en otro idioma.\n"
         f"- Estilo: {tone_hint}\n"
-        "- Mantén la misma voz cuando informes de retrasos, límites de servicio o fallos técnicos."
+        "- Mantén la misma voz cuando informes de retrasos, "
+        "límites de servicio o fallos técnicos."
     )

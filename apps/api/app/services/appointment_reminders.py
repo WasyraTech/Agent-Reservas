@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Appointment, Conversation
+from app.models import Appointment
 from app.services.effective_settings import build_effective_settings
 from app.services.twilio_outbound import send_whatsapp_text_reply
 

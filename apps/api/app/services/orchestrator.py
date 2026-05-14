@@ -17,12 +17,12 @@ from app.config import get_settings
 from app.constants import REPLY_JOB_QUEUE_KEY
 from app.models import MessageDirection
 from app.services.agent_channel_voice import agent_disruption_message
-from app.services.effective_settings import build_effective_settings
 from app.services.conversation import (
     add_message,
     get_inbound_by_twilio_sid,
     get_or_create_conversation,
 )
+from app.services.effective_settings import build_effective_settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,10 @@ async def _enqueue_reply_job(conversation_id: uuid.UUID) -> None:
         raise RuntimeError("REDIS_URL requerido para webhook_async_replies")
     client = redis_async.from_url(url, decode_responses=True)
     try:
-        await client.rpush(REPLY_JOB_QUEUE_KEY, json.dumps({"conversation_id": str(conversation_id)}))
+        await client.rpush(
+            REPLY_JOB_QUEUE_KEY,
+            json.dumps({"conversation_id": str(conversation_id)}),
+        )
     finally:
         await client.aclose()
 

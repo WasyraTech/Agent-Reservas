@@ -20,8 +20,8 @@ from app.agent.tool_handlers import (
 )
 from app.config import get_settings
 from app.models import Conversation, MessageDirection
-from app.services.conversation import list_recent_messages
 from app.services.agent_channel_voice import agent_disruption_message, no_reply_fallback
+from app.services.conversation import list_recent_messages
 from app.services.effective_settings import EffectiveSettings
 
 logger = logging.getLogger(__name__)
