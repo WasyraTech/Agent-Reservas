@@ -168,21 +168,21 @@ Vista del panel **Next.js** (tema claro): acceso con **Twilio Verify**, inbox de
 <details>
 <summary>Regenerar capturas (desarrollo local)</summary>
 
-API en `http://127.0.0.1:8000` y Next en `http://localhost:3010` con `PANEL_SESSION_REQUIRED=false`. Terminal 1:
+API en `http://127.0.0.1:8000` y Next en `http://localhost:<puerto>` (el mismo que muestre “Local:” en la consola) con `PANEL_SESSION_REQUIRED=false`. Terminal 1:
 
 ```powershell
 cd apps/web
 $env:PANEL_SESSION_REQUIRED="false"
 $env:BACKEND_URL="http://127.0.0.1:8000"
-npm run dev -- -p 3010
+npm run dev -- -p 3020
 ```
 
-Terminal 2:
+Terminal 2 (`SCREENSHOT_BASE_URL` debe coincidir con host y puerto del dev server):
 
 ```powershell
 cd apps/web
 npx playwright install chromium
-$env:SCREENSHOT_BASE_URL="http://localhost:3010"
+$env:SCREENSHOT_BASE_URL="http://localhost:3020"
 npm run readme:capture
 ```
 
