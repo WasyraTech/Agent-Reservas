@@ -139,31 +139,31 @@ El webhook encola la generación de respuesta y el **worker** envía el mensaje 
 
 Vista del panel **Next.js** (tema claro): acceso con **Twilio Verify**, inbox de chats, citas, ajustes del agente y estado del API.
 
-> GitHub a veces no renderiza imágenes que van **dentro de tablas** Markdown; aquí cada captura va en su propia línea (ruta relativa `./docs/screenshots/…`).
+> GitHub a veces no renderiza imágenes que van **dentro de tablas** Markdown; aquí cada captura va en su propia línea (ruta relativa `./docs/screenshots/…`). Si ves **versiones viejas**, recarga forzada (**Ctrl+Shift+R**) o incrementa el `?v=` de las URLs tras volver a generar los PNG.
 
 ### Inicio de sesión (OTP)
 
-![Pantalla de inicio de sesión con teléfono y código OTP](./docs/screenshots/panel-login.png)
+![Pantalla de inicio de sesión con teléfono y código OTP](./docs/screenshots/panel-login.png?v=10)
 
 ### Registro (alta de negocio + admin)
 
-![Pantalla de registro con nombre de negocio y OTP](./docs/screenshots/panel-register.png)
+![Pantalla de registro con nombre de negocio y OTP](./docs/screenshots/panel-register.png?v=10)
 
 ### Chats (inbox)
 
-![Lista de chats y panel lateral](./docs/screenshots/panel-chats.png)
+![Lista de chats y panel lateral](./docs/screenshots/panel-chats.png?v=10)
 
 ### Citas
 
-![Vista de citas con filtros y exportación](./docs/screenshots/panel-citas.png)
+![Vista de citas con filtros y exportación](./docs/screenshots/panel-citas.png?v=10)
 
 ### Configuración (Twilio, LLM, Calendar…)
 
-![Pestañas de ajustes del agente](./docs/screenshots/panel-configuracion.png)
+![Pestañas de ajustes del agente](./docs/screenshots/panel-configuracion.png?v=10)
 
 ### Estado del despliegue
 
-![Versión API, commit y salud de base de datos](./docs/screenshots/panel-estado.png)
+![Versión API, commit y salud de base de datos](./docs/screenshots/panel-estado.png?v=10)
 
 <details>
 <summary>Regenerar capturas (desarrollo local)</summary>

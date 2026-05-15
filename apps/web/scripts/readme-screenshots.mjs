@@ -8,6 +8,9 @@
  * Uso (desde apps/web):
  *   npx playwright install chromium
  *   npm run readme:capture
+ *
+ * Tras regenerar PNG, si GitHub sigue mostrando imágenes cacheadas, incrementa
+ * el query `?v=` en README.md en las líneas ![...](./docs/screenshots/....png?v=…).
  */
 
 import { mkdir } from "node:fs/promises";
