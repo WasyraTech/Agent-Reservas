@@ -135,6 +135,61 @@ El webhook encola la generación de respuesta y el **worker** envía el mensaje 
 
 ---
 
+## Capturas del panel (UI)
+
+Ejemplos del panel **Next.js** (tema claro). Las imágenes viven en [`docs/screenshots/`](./docs/screenshots/); en GitHub, si ves versiones cacheadas, recarga forzada (**Ctrl+Shift+R**) o sube el `?v=` en las URLs.
+
+### Inicio de sesión (OTP)
+
+![Inicio de sesión con teléfono y código OTP](./docs/screenshots/panel-login.png?v=1)
+
+### Registro (alta de negocio + admin)
+
+![Registro con nombre de negocio y OTP](./docs/screenshots/panel-register.png?v=1)
+
+### Chats (inbox)
+
+![Lista de conversaciones y panel lateral](./docs/screenshots/panel-chats.png?v=1)
+
+### Citas
+
+![Citas con filtros y exportación](./docs/screenshots/panel-citas.png?v=1)
+
+### Configuración
+
+![Ajustes: Twilio, LLM, Google Calendar, horarios…](./docs/screenshots/panel-configuracion.png?v=1)
+
+### Estado del despliegue
+
+![Estado: versión API, commit, DB y Redis](./docs/screenshots/panel-estado.png?v=1)
+
+<details>
+<summary>Regenerar capturas (Playwright)</summary>
+
+Requiere **API** en marcha (`http://127.0.0.1:8000`) y Next en modo dev con `PANEL_SESSION_REQUIRED=false`. Si el **tour** (`AppTour`) tapa la interfaz en las capturas, quítalo temporalmente de `apps/web/src/app/layout.tsx` antes de ejecutar el script y restáuralo después.
+
+```powershell
+cd apps/web
+$env:PANEL_SESSION_REQUIRED="false"
+$env:BACKEND_URL="http://127.0.0.1:8000"
+npm run dev -- -p 3010
+```
+
+En otra terminal (`SCREENSHOT_BASE_URL` = mismo host/puerto que “Local:”):
+
+```powershell
+cd apps/web
+npx playwright install chromium
+$env:SCREENSHOT_BASE_URL="http://localhost:3010"
+npm run readme:capture
+```
+
+Tras cambiar las PNG, si GitHub sigue mostrando imágenes viejas, incrementa `?v=` en las líneas anteriores del README.
+
+</details>
+
+---
+
 ## Lo que ves en el panel
 
 | Ruta | Función |
@@ -237,6 +292,8 @@ OpenAPI en vivo: `http://localhost:8000/docs` con la API levantada.
 
 ```
 .
+├── docs/
+│   └── screenshots/       PNG del panel (referenciados en README)
 ├── apps/
 │   ├── api/                 FastAPI, webhooks, agente, migraciones
 │   │   ├── app/
