@@ -1,0 +1,58 @@
+/**
+ * Capturas → ../../docs/screenshots/ (login, register, chats, citas, configuracion, estado).
+ *
+ * Requisitos: API en BACKEND_URL; Next con PANEL_SESSION_REQUIRED=false.
+ *   SCREENSHOT_BASE_URL debe coincidir con el “Local:” del dev server (ej. http://localhost:3040).
+ */
+
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { chromium } from "playwright";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(__dirname, "..", "..", "..");
+const outDir = join(repoRoot, "docs", "screenshots");
+
+const base = (process.env.SCREENSHOT_BASE_URL || "http://localhost:3010").replace(/\/$/, "");
+
+/** @type {{ path: string; file: string; waitMs?: number }[]} */
+const shots = [
+  { path: "/login", file: "panel-login.png", waitMs: 1200 },
+  { path: "/register", file: "panel-register.png", waitMs: 1200 },
+  { path: "/chats", file: "panel-chats.png", waitMs: 1500 },
+  { path: "/citas", file: "panel-citas.png", waitMs: 2000 },
+  { path: "/configuracion", file: "panel-configuracion.png", waitMs: 4500 },
+  { path: "/estado", file: "panel-estado.png", waitMs: 4000 },
+];
+
+async function main() {
+  await mkdir(outDir, { recursive: true });
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  });
+  try {
+    for (const s of shots) {
+      const url = `${base}${s.path}`;
+      process.stdout.write(`Screenshot ${s.file} ← ${url}\n`);
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+      await new Promise((r) => setTimeout(r, s.waitMs ?? 1000));
+      await page.screenshot({
+        path: join(outDir, s.file),
+        type: "png",
+        fullPage: false,
+      });
+    }
+  } finally {
+    await browser.close();
+  }
+  process.stdout.write(`OK → ${outDir}\n`);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
