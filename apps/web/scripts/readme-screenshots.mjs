@@ -20,7 +20,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..", "..", "..");
 const outDir = join(repoRoot, "docs", "screenshots");
 
-const base = (process.env.SCREENSHOT_BASE_URL || "http://127.0.0.1:3010").replace(/\/$/, "");
+/** Usar `localhost` evita el aviso de origen cruzado 127.0.0.1 → /_next en Next dev. */
+const base = (process.env.SCREENSHOT_BASE_URL || "http://localhost:3010").replace(/\/$/, "");
 
 /** @type {{ path: string; file: string; waitMs?: number }[]} */
 const shots = [
@@ -28,8 +29,8 @@ const shots = [
   { path: "/register", file: "panel-register.png", waitMs: 1200 },
   { path: "/chats", file: "panel-chats.png", waitMs: 1500 },
   { path: "/citas", file: "panel-citas.png", waitMs: 2000 },
-  { path: "/configuracion", file: "panel-configuracion.png", waitMs: 3500 },
-  { path: "/estado", file: "panel-estado.png", waitMs: 3500 },
+  { path: "/configuracion", file: "panel-configuracion.png", waitMs: 4500 },
+  { path: "/estado", file: "panel-estado.png", waitMs: 4000 },
 ];
 
 async function main() {

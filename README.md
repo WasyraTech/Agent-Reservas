@@ -139,23 +139,36 @@ El webhook encola la generación de respuesta y el **worker** envía el mensaje 
 
 Vista del panel **Next.js** (tema claro): acceso con **Twilio Verify**, inbox de chats, citas, ajustes del agente y estado del API.
 
-### Inicio de sesión y registro
+> GitHub a veces no renderiza imágenes que van **dentro de tablas** Markdown; aquí cada captura va en su propia línea (ruta relativa `./docs/screenshots/…`).
 
-| Inicio de sesión (OTP) | Alta de negocio + admin |
-|:-:|:-:|
-| ![Pantalla de inicio de sesión con teléfono y código OTP](docs/screenshots/panel-login.png) | ![Pantalla de registro con nombre de negocio y OTP](docs/screenshots/panel-register.png) |
+### Inicio de sesión (OTP)
 
-### Chats, citas y configuración
+![Pantalla de inicio de sesión con teléfono y código OTP](./docs/screenshots/panel-login.png)
 
-| Inbox de conversaciones | Citas y filtros | Ajustes (Twilio, LLM, Calendar…) |
-|:-:|:-:|:-:|
-| ![Lista de chats y panel lateral](docs/screenshots/panel-chats.png) | ![Vista de citas con exportación](docs/screenshots/panel-citas.png) | ![Pestañas de configuración del agente](docs/screenshots/panel-configuracion.png) |
+### Registro (alta de negocio + admin)
+
+![Pantalla de registro con nombre de negocio y OTP](./docs/screenshots/panel-register.png)
+
+### Chats (inbox)
+
+![Lista de chats y panel lateral](./docs/screenshots/panel-chats.png)
+
+### Citas
+
+![Vista de citas con filtros y exportación](./docs/screenshots/panel-citas.png)
+
+### Configuración (Twilio, LLM, Calendar…)
+
+![Pestañas de ajustes del agente](./docs/screenshots/panel-configuracion.png)
 
 ### Estado del despliegue
 
-![Versión API, commit y salud de base de datos](docs/screenshots/panel-estado.png)
+![Versión API, commit y salud de base de datos](./docs/screenshots/panel-estado.png)
 
-Para **regenerar** estas imágenes en `docs/screenshots/` (mismos nombres de archivo): levanta la **API** (`docker compose up` o `uvicorn` en `8000`), en otra terminal arranca el web en modo dev con sesión opcional desactivada y ejecuta el script:
+<details>
+<summary>Regenerar capturas (desarrollo local)</summary>
+
+API en `http://127.0.0.1:8000` y Next en `http://localhost:3010` con `PANEL_SESSION_REQUIRED=false`. Terminal 1:
 
 ```powershell
 cd apps/web
@@ -164,14 +177,16 @@ $env:BACKEND_URL="http://127.0.0.1:8000"
 npm run dev -- -p 3010
 ```
 
-En otra terminal (con el dev server ya arriba):
+Terminal 2:
 
 ```powershell
 cd apps/web
-npx playwright install chromium   # solo la primera vez
-$env:SCREENSHOT_BASE_URL="http://127.0.0.1:3010"
+npx playwright install chromium
+$env:SCREENSHOT_BASE_URL="http://localhost:3010"
 npm run readme:capture
 ```
+
+</details>
 
 ---
 
