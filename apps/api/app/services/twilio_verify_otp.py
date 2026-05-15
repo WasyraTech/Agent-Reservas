@@ -33,8 +33,8 @@ def send_verification_otp(to_e164: str) -> None:
         if getattr(exc, "status", None) == 404:
             log.error("Twilio Verify service not found (sid=%s)", vsid)
             raise RuntimeError(
-                "Twilio Verify: el servicio no existe o TWILIO_VERIFY_SERVICE_SID no coincide con la cuenta. "
-                "Revisa Twilio Console → Verify → Services."
+                "Twilio Verify: el servicio no existe o TWILIO_VERIFY_SERVICE_SID "
+                "no coincide con la cuenta. Revisa Twilio Console → Verify → Services."
             ) from exc
         log.exception("Twilio Verify send failed (%s) for %s", channel, to_e164)
         raise
@@ -54,8 +54,8 @@ def check_verification_code(to_e164: str, code: str) -> bool:
         if getattr(exc, "status", None) == 404:
             log.error("Twilio Verify service not found on check (sid=%s)", vsid)
             raise RuntimeError(
-                "Twilio Verify: el servicio no existe o TWILIO_VERIFY_SERVICE_SID no coincide con la cuenta. "
-                "Revisa Twilio Console → Verify → Services."
+                "Twilio Verify: el servicio no existe o TWILIO_VERIFY_SERVICE_SID "
+                "no coincide con la cuenta. Revisa Twilio Console → Verify → Services."
             ) from exc
         log.exception("Twilio Verify check failed for %s", to_e164)
         return False
