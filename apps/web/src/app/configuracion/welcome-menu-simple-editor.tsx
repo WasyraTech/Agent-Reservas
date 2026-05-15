@@ -49,7 +49,7 @@ export function WelcomeMenuSimpleEditor({
         />
       </label>
 
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-br from-violet-500/10 via-transparent to-sky-500/10 p-4 sm:p-5">
+      <div className="rounded-lg border border-[var(--wa-border)] bg-[var(--wa-strip-bg)] p-4 sm:p-5">
         <p className="text-xs font-semibold text-[var(--wa-text)]">Dos botones de información</p>
         <p className="mt-1 text-[11px] leading-relaxed text-[var(--wa-text-muted)]">
           El bot mostrará estas dos opciones numeradas y luego una tercera fija: agendar cita.

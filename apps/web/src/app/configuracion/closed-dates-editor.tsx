@@ -38,7 +38,7 @@ export function ClosedDatesEditor({
   };
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-strip-bg)] p-4">
       <p className="text-xs font-medium text-[var(--wa-text-muted)]">Días cerrados (feriados, vacaciones)</p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="min-w-[160px] flex-1 text-sm">

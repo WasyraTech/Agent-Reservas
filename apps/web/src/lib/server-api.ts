@@ -56,6 +56,8 @@ export type ConversationSummary = {
   has_pending_handoff?: boolean;
   last_agent_llm_error_snippet?: string | null;
   assigned_operator_id?: string | null;
+  last_message_preview?: string | null;
+  last_message_direction?: string | null;
 };
 
 export type ConversationDetail = {

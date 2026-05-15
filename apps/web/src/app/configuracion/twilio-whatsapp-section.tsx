@@ -1,4 +1,4 @@
-import { inputClass } from "./configuracion-constants";
+import { inputClass, SECRET_PANEL_FIELD_NOTE } from "./configuracion-constants";
 import type { Settings } from "./configuracion-types";
 
 export function TwilioWhatsappSection({
@@ -16,6 +16,7 @@ export function TwilioWhatsappSection({
 }) {
   return (
     <section
+      id="cfg-twilio"
       role="tabpanel"
       aria-labelledby="tab-general"
       className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7"
@@ -58,9 +59,7 @@ export function TwilioWhatsappSection({
           }
           autoComplete="off"
         />
-        <p className="mt-1 text-xs text-[var(--wa-text-muted)]">
-          Solo se envía al guardar si escribes algo nuevo. No se muestra el valor guardado.
-        </p>
+        <p className="mt-1 text-xs text-[var(--wa-text-muted)]">{SECRET_PANEL_FIELD_NOTE}</p>
       </div>
     </section>
   );

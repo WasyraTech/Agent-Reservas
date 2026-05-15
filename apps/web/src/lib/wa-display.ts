@@ -1,3 +1,13 @@
+/** Título de fila / cabecera: quita prefijo whatsapp: y muestra dígitos legibles. */
+export function waChatTitle(from: string): string {
+  const t = from.replace(/^whatsapp:/i, "").trim();
+  const digits = t.replace(/\D/g, "");
+  if (digits.length >= 8) {
+    return `+${digits}`;
+  }
+  return t || "—";
+}
+
 /** Etiqueta corta para avatar (último dígito o letra). */
 export function waAvatarGlyph(from: string): string {
   const digits = from.replace(/\D/g, "");
@@ -16,7 +26,10 @@ export function waAvatarHue(from: string): number {
 }
 
 /** Título legible: quita prefijo whatsapp: y acorta. */
-export function waChatTitle(from: string): string {
-  const s = from.replace(/^whatsapp:/i, "").trim();
-  return s || from;
+export function waMeChatUrl(from: string, prefilledText?: string): string {
+  const digits = from.replace(/\D/g, "");
+  if (!digits) return "https://wa.me/";
+  const base = `https://wa.me/${digits}`;
+  const t = prefilledText?.trim();
+  return t ? `${base}?text=${encodeURIComponent(t)}` : base;
 }

@@ -95,25 +95,25 @@ export function AgentPersonalityPanel(props: Props) {
     <section
       role="tabpanel"
       aria-labelledby="tab-agent"
-      className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-[#1a2830] via-[var(--wa-panel)] to-[#151d24] p-1 shadow-[0_32px_80px_-32px_rgba(0,0,0,0.75)] ring-1 ring-white/[0.04] sm:p-2"
+      className="relative overflow-hidden rounded-lg border border-[var(--wa-border)] bg-[var(--wa-card-bg)] p-1 shadow-sm sm:p-2"
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[var(--wa-accent)]/12 blur-3xl"
+        className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#e7fce3]/80 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-20 -right-16 h-56 w-56 rounded-full bg-violet-600/15 blur-3xl"
+        className="pointer-events-none absolute -bottom-20 -right-16 h-56 w-56 rounded-full bg-[var(--wa-panel)]/90 blur-3xl"
       />
 
-      <div className="relative rounded-[1.35rem] border border-white/[0.05] bg-black/20 px-4 py-7 sm:px-8 sm:py-9">
+      <div className="relative rounded-lg border border-[var(--wa-border)] bg-[var(--wa-panel)] px-4 py-7 sm:px-8 sm:py-9">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-1 gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--wa-accent)]/35 via-violet-500/25 to-sky-600/30 text-white shadow-lg ring-1 ring-white/20">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-sm ring-1 ring-black/5">
               <IconBot className="h-7 w-7" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[var(--wa-accent-soft)]/90">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#008069]">
                 Panel de agendamiento
               </p>
               <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight text-[var(--wa-text)] sm:text-3xl">
@@ -140,10 +140,10 @@ export function AgentPersonalityPanel(props: Props) {
 
         <div className="mt-10 space-y-6 sm:space-y-7">
           <AgentConfigCard
+            anchorId="cfg-agent-identidad"
             step="01 · Identidad"
             title="Datos del negocio"
             hint="Nombre, rubro y contacto que el asistente puede citar con confianza."
-            accent="emerald"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm">
@@ -212,7 +212,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="02 · Resumen"
             title="Descripción del negocio"
             hint="Un párrafo claro: qué ofrecen, a quién atienden y qué los diferencia."
-            accent="violet"
           >
             <textarea
               className={textareaClass}
@@ -225,10 +224,10 @@ export function AgentPersonalityPanel(props: Props) {
           </AgentConfigCard>
 
           <AgentConfigCard
+            anchorId="cfg-agent-horarios"
             step="03 · Horarios"
             title="Semana y feriados"
             hint="Interruptor por día, horas de mañana y tarde (2º turno = horario partido). Abajo añade feriados con el calendario."
-            accent="emerald"
           >
             <ScheduleWeekEditor
               workingHoursJson={props.workingHoursJson}
@@ -243,16 +242,16 @@ export function AgentPersonalityPanel(props: Props) {
           </AgentConfigCard>
 
           <AgentConfigCard
+            anchorId="cfg-agent-servicios"
             step="04 · Servicios"
             title="Tratamientos y duraciones"
             hint="Lista visual: nombre, minutos, precio en texto libre y si pide depósito. Si prefieres tabla Excel o CSV, úsalo en «Importar» (texto de respaldo)."
-            accent="violet"
           >
             <ServicesListEditor servicesJson={props.servicesJson} onServicesJson={props.onServicesJson} />
-            <details className="group/details mt-6 rounded-2xl border border-dashed border-white/15 bg-black/25 px-4 py-3">
+            <details className="group/details mt-6 rounded-2xl border border-dashed border-slate-300/90 bg-slate-50/90 px-4 py-3">
               <summary className="cursor-pointer list-none text-sm font-medium text-[var(--wa-text)] marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-2">
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--wa-text-muted)]">
+                  <span className="rounded-md bg-[var(--wa-chip-bg)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--wa-text-muted)]">
                     Opcional
                   </span>
                   Importar catálogo desde Excel o CSV
@@ -270,7 +269,7 @@ export function AgentPersonalityPanel(props: Props) {
                 onChange={props.onCatalogFileChange}
               />
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <div className="flex rounded-xl border border-white/10 bg-black/35 p-0.5">
+                <div className="flex rounded-xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-0.5 shadow-inner">
                   <button
                     type="button"
                     onClick={() => props.onCatalogImportMode("append")}
@@ -320,7 +319,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="05 · Reglas"
             title="Cómo se reservan las citas"
             hint="Duración por defecto, espacio entre huecos y cuántos días hacia adelante se puede pedir cita."
-            accent="amber"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <NumberField
@@ -361,7 +359,7 @@ export function AgentPersonalityPanel(props: Props) {
                 max={240}
                 help="Limpieza o cambio de sala"
               />
-              <label className="flex cursor-pointer items-center gap-3 self-end rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm">
+              <label className="flex cursor-pointer items-center gap-3 self-end rounded-xl border border-[var(--wa-border)] bg-[var(--wa-panel)] px-4 py-3 text-sm text-[var(--wa-text)] shadow-sm">
                 <input
                   type="checkbox"
                   checked={props.requiresIdDocument}
@@ -374,10 +372,10 @@ export function AgentPersonalityPanel(props: Props) {
           </AgentConfigCard>
 
           <AgentConfigCard
+            anchorId="cfg-agent-bienvenida"
             step="06 · Bienvenida"
             title="Primer mensaje y menú"
             hint="El cliente ve un saludo y dos botones de información; el tercero siempre es agendar cita."
-            accent="violet"
           >
             <WelcomeMenuSimpleEditor
               welcomeMessage={props.welcomeMessage}
@@ -391,7 +389,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="07 · Cancelaciones"
             title="Política de cancelación"
             hint="Qué puede decir el bot si piden anular o mover la cita."
-            accent="emerald"
           >
             <textarea
               className={textareaClass}
@@ -407,7 +404,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="08 · Datos del cliente"
             title="Qué pedir antes de confirmar"
             hint="Casillas para lo habitual; abajo puedes afinar con texto libre para el bot."
-            accent="violet"
           >
             <RequiredFieldsEditor
               appointmentRequiredFieldsJson={props.appointmentRequiredFieldsJson}
@@ -430,7 +426,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="09 · Pagos"
             title="Medios de pago y precios"
             hint="Yape, transferencia, tarjetas, depósitos."
-            accent="amber"
           >
             <textarea
               className={textareaClass}
@@ -457,7 +452,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="10 · Ubicación"
             title="Cómo llegar o cobertura"
             hint="Referencias, estacionamiento, sucursales."
-            accent="emerald"
           >
             <textarea
               className={textareaClass}
@@ -473,7 +467,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="11 · FAQs"
             title="Preguntas frecuentes"
             hint="Formato libre P: / R:"
-            accent="violet"
           >
             <textarea
               className={`${textareaClass} min-h-[180px]`}
@@ -489,7 +482,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="12 · Fuera de horario"
             title="Mensaje si escriben cerrados"
             hint="Opcional: si lo dejas vacío, el bot improvisa según horarios."
-            accent="emerald"
           >
             <textarea
               className={textareaClass}
@@ -505,7 +497,6 @@ export function AgentPersonalityPanel(props: Props) {
             step="13 · Límites"
             title="Lo que el bot no debe hacer"
             hint="Salud, legal, datos sensibles, promesas imposibles."
-            accent="amber"
           >
             <textarea
               className={textareaClass}
@@ -518,10 +509,10 @@ export function AgentPersonalityPanel(props: Props) {
           </AgentConfigCard>
 
           <AgentConfigCard
+            anchorId="cfg-agent-tono"
             step="14 · Tono"
             title="Estilo de conversación"
             hint="Formal o cercano, emojis, longitud de mensajes."
-            accent="violet"
           >
             <textarea
               className={textareaClass}

@@ -1,56 +1,477 @@
 @import "tailwindcss";
 
-/* Executive dark — variables --wa-* conservadas para no romper componentes */
+/* WhatsApp Web — tokens por tema (claro / oscuro) */
 :root {
-  --wa-bg: #070a10;
-  --wa-bg-elevated: #0c1018;
-  --wa-panel: #121826;
-  --wa-panel-hover: #1a2232;
-  --wa-header: #1e2a3f;
-  --wa-header-dark: #0f1624;
-  --wa-accent: #c9a86c;
-  --wa-accent-soft: #e4d4b2;
-  --wa-bubble-in: #151c2a;
-  --wa-bubble-out: #2a3650;
-  --wa-text: #e8ecf4;
-  --wa-text-muted: #8b95a8;
-  --wa-border: rgba(255, 255, 255, 0.08);
-  --wa-link: #8ab4ff;
-  --wa-danger: #e85d6f;
+  color-scheme: light;
+  --wa-bg: #efeae2;
+  --wa-bg-app: #dadbd7;
+  --wa-bg-elevated: #ffffff;
+  --wa-panel: #ffffff;
+  --wa-panel-hover: #f5f6f6;
+  --wa-header: #f0f2f5;
+  --wa-header-dark: #ededed;
+  --wa-accent: #25d366;
+  --wa-accent-soft: #008069;
+  --wa-accent-muted: rgba(37, 211, 102, 0.22);
+  --wa-bubble-in: #ffffff;
+  --wa-bubble-out: #d9fdd3;
+  --wa-text: #111b21;
+  --wa-text-muted: #667781;
+  --wa-border: #e9edef;
+  --wa-link: #027eb5;
+  --wa-danger: #ea0038;
+  --wa-bubble-out-meta: #667781;
+  --wa-strip-bg: #f0f2f5;
+  --wa-strip-border: #e9edef;
+  --wa-chip-bg: #f0f2f5;
+  --wa-ok-banner-bg: #e7fce3;
+  --wa-ok-banner-fg: #111b21;
+  --wa-input-bg: #ffffff;
+  --wa-card-bg: #ffffff;
+  --wa-card-hover: #fcfcfc;
+  --wa-card-shadow-inset: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+  --wa-scrollbar-thumb-hover: #94989b;
+  --wa-backdrop-base: #dadbd7;
+  --wa-backdrop-mid: #dadbd7;
+  --wa-backdrop-top: #e8eaec;
+  --wa-backdrop-bottom: #cfd4d8;
+  --wa-backdrop-vignette: rgba(255, 255, 255, 0.42);
+  --wa-backdrop-accent-glow: rgba(0, 128, 105, 0.06);
+  --wa-backdrop-grain-opacity: 0.42;
+  --wa-chat-dots: rgba(17, 27, 33, 0.055);
+  --wa-chat-grad-top: rgba(255, 255, 255, 0.12);
+  --wa-row-active-shadow: 2px 4px 16px -6px rgba(11, 20, 26, 0.08);
+  --wa-nav-indicator: #25d366;
+  --wa-elevated-ring-from: rgba(37, 211, 102, 0.22);
+  --wa-elevated-ring-via: rgba(0, 128, 105, 0.12);
+  --wa-modal-glow-inset: rgba(255, 255, 255, 0.65);
+  --wa-modal-glow-outer: rgba(11, 20, 26, 0.28);
+}
+
+html[data-ar-theme="dark"] {
+  color-scheme: dark;
+  --wa-bg: #0d1418;
+  --wa-bg-app: #0b1114;
+  --wa-bg-elevated: #1a2429;
+  --wa-panel: #1a2429;
+  --wa-panel-hover: #263239;
+  --wa-header: #1b262d;
+  --wa-header-dark: #121b21;
+  --wa-bubble-in: #1f2c33;
+  --wa-bubble-out: #025144;
+  --wa-text: #f0f4f5;
+  --wa-text-muted: #94a3ad;
+  --wa-border: #2f3d45;
+  --wa-link: #6ec8f5;
+  --wa-bubble-out-meta: #b8c4cc;
+  --wa-strip-bg: #1b262d;
+  --wa-strip-border: #2f3d45;
+  --wa-chip-bg: #2f3d45;
+  --wa-ok-banner-bg: #16352e;
+  --wa-ok-banner-fg: #e8f5ef;
+  --wa-accent-muted: rgba(37, 211, 102, 0.35);
+  --wa-input-bg: #263239;
+  --wa-card-bg: #1a2429;
+  --wa-card-hover: #1f2d35;
+  --wa-card-shadow-inset: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --wa-scrollbar-thumb-hover: #6a7d88;
+  --wa-backdrop-base: #0b1114;
+  --wa-backdrop-mid: #0e161c;
+  --wa-backdrop-top: #152028;
+  --wa-backdrop-bottom: #070b0e;
+  --wa-backdrop-vignette: rgba(30, 200, 140, 0.04);
+  --wa-backdrop-accent-glow: rgba(37, 211, 102, 0.07);
+  --wa-backdrop-grain-opacity: 0.26;
+  --wa-chat-dots: rgba(233, 237, 237, 0.045);
+  --wa-chat-grad-top: rgba(0, 0, 0, 0.12);
+  --wa-row-active-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.55);
+  --wa-nav-indicator: #2fe077;
+  --wa-elevated-ring-from: rgba(47, 211, 130, 0.18);
+  --wa-elevated-ring-via: rgba(0, 128, 105, 0.14);
+  --wa-modal-glow-inset: rgba(255, 255, 255, 0.05);
+  --wa-modal-glow-outer: rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    transition:
+      color 0.22s ease,
+      background-color 0.22s ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    transition: none;
+  }
+}
+
+@keyframes wa-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wa-page-in {
+    animation: none !important;
+  }
+}
+
+.wa-page-in {
+  animation: wa-page-in 0.22s ease-out both;
+}
+
+[data-ar-panel="true"] {
+  color: var(--wa-text);
+}
+
+/* Borde degradado tarjetas “elevated” (tema claro / oscuro) */
+.ar-panel-elevated-ring {
+  background: linear-gradient(
+    to bottom right,
+    var(--wa-elevated-ring-from),
+    var(--wa-elevated-ring-via),
+    transparent 72%
+  );
+  box-shadow: 0 12px 40px -20px rgba(11, 20, 26, 0.16);
+}
+
+html[data-ar-theme="dark"] .ar-panel-elevated-ring {
+  box-shadow: 0 14px 44px -18px rgba(0, 0, 0, 0.55);
+}
+
+.ar-panel-elevated-ring:hover {
+  box-shadow: 0 16px 48px -18px rgba(11, 20, 26, 0.2);
+}
+
+html[data-ar-theme="dark"] .ar-panel-elevated-ring:hover {
+  box-shadow: 0 18px 52px -14px rgba(0, 0, 0, 0.62);
+}
+
+.ar-panel-card-flat {
+  box-shadow:
+    var(--wa-card-shadow-inset),
+    0 2px 8px -2px rgba(11, 20, 26, 0.08);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.ar-panel-card-flat:hover {
+  box-shadow:
+    var(--wa-card-shadow-inset),
+    0 8px 24px -8px rgba(11, 20, 26, 0.14);
+}
+
+html[data-ar-theme="dark"] .ar-panel-card-flat {
+  box-shadow:
+    var(--wa-card-shadow-inset),
+    0 2px 12px -2px rgba(0, 0, 0, 0.42);
+}
+
+html[data-ar-theme="dark"] .ar-panel-card-flat:hover {
+  box-shadow:
+    var(--wa-card-shadow-inset),
+    0 10px 28px -6px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
 }
 
 .wa-sidebar {
-  backdrop-filter: blur(18px);
-  background: linear-gradient(
-    180deg,
-    rgba(12, 16, 24, 0.94) 0%,
-    rgba(7, 10, 16, 0.98) 100%
-  );
+  background: var(--wa-bg-elevated);
 }
 
 body {
-  background: radial-gradient(1200px 600px at 10% -10%, rgba(201, 168, 108, 0.07), transparent),
-    var(--wa-bg-elevated);
-  color: var(--wa-text);
+  min-height: 100dvh;
+  background-color: var(--wa-bg-app);
+  color: var(--wa-text-muted);
   font-family: var(--font-geist-sans), system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .wa-chat-canvas {
   background-color: var(--wa-bg);
-  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--wa-chat-dots) 1px, transparent 0),
+    linear-gradient(180deg, var(--wa-chat-grad-top) 0%, transparent 42%);
+  background-size: 22px 22px, 100% 100%;
+}
+
+[data-ar-panel="true"] .wa-chat-canvas {
+  background-color: var(--wa-bg);
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--wa-chat-dots) 1px, transparent 0),
+    linear-gradient(180deg, var(--wa-chat-grad-top) 0%, transparent 42%);
+  background-size: 22px 22px, 100% 100%;
+  box-shadow: none;
+}
+
+/* Lista chats — fila activa con “lift” suave */
+.wa-chat-row-active {
+  box-shadow:
+    inset 3px 0 0 var(--wa-nav-indicator),
+    var(--wa-row-active-shadow);
+}
+
+@keyframes wa-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.wa-toast-in {
+  animation: wa-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wa-toast-in {
+    animation: none;
+  }
+}
+
+.wa-msg-out-meta {
+  color: var(--wa-bubble-out-meta);
+}
+
+.wa-ok-banner {
+  border: 1px solid #b9e6c9;
+  background: var(--wa-ok-banner-bg);
+  color: var(--wa-ok-banner-fg);
 }
 
 .wa-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 .wa-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
+  background: var(--wa-scrollbar-thumb);
+  border-radius: 4px;
+}
+.wa-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--wa-scrollbar-thumb-hover);
+}
+
+/* Tarjeta / bloque — plano como WA */
+.wa-glass,
+.wa-card {
+  background: var(--wa-panel);
+  border: 1px solid var(--wa-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.08);
+}
+
+.wa-input {
+  border-radius: 0.5rem;
+  border: 1px solid var(--wa-border);
+  background: var(--wa-header);
+  color: var(--wa-text);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.wa-input::placeholder {
+  color: var(--wa-text-muted);
+}
+.wa-input:focus {
+  outline: none;
+  border-color: var(--wa-accent);
+  box-shadow: 0 0 0 2px var(--wa-accent-muted);
+}
+
+[data-ar-panel="true"] .wa-input {
+  background: var(--wa-input-bg);
+  border-color: var(--wa-border);
+  color: var(--wa-text);
+  box-shadow: none;
+}
+[data-ar-panel="true"] .wa-input:focus {
+  border-color: var(--wa-accent);
+  box-shadow: 0 0 0 2px var(--wa-accent-muted);
+}
+
+/* Placeholders legibles sobre inputs oscuros */
+html[data-ar-theme="dark"] input.wa-input::placeholder,
+html[data-ar-theme="dark"] textarea.wa-input::placeholder {
+  color: #9eadb8;
+  opacity: 1;
+}
+
+[data-ar-panel="true"] .wa-card,
+[data-ar-panel="true"] .wa-glass {
+  background: var(--wa-card-bg);
+  border: 1px solid var(--wa-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.08);
+}
+
+html[data-ar-theme="dark"] [data-ar-panel="true"] .wa-card,
+html[data-ar-theme="dark"] [data-ar-panel="true"] .wa-glass {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+[data-ar-panel="true"] .wa-scroll::-webkit-scrollbar-thumb {
+  background: var(--wa-scrollbar-thumb);
+}
+[data-ar-panel="true"] .wa-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--wa-scrollbar-thumb-hover);
+}
+
+/* Focus visible: enlaces y botones del panel (además de .ar-focus-ring) */
+[data-ar-panel="true"] a:focus-visible,
+[data-ar-panel="true"] button:focus-visible:not(:disabled) {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--wa-bg-app), 0 0 0 4px var(--wa-accent-muted);
+}
+
+.ar-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--wa-bg-app), 0 0 0 4px var(--wa-accent-muted);
+}
+
+@keyframes cfg-modal-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.cfg-modal-panel {
+  animation: cfg-modal-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cfg-modal-panel {
+    animation: none;
+  }
+}
+
+/* Marco “glass” para modales / highlights premium */
+.panel-modal-glow {
+  box-shadow:
+    0 0 0 1px var(--wa-modal-glow-inset) inset,
+    0 28px 56px -24px var(--wa-modal-glow-outer);
+}
+
+/* Transiciones entre /login y /register (grupo (auth)) */
+@keyframes auth-page-in-right {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes auth-page-in-left {
+  from {
+    opacity: 0;
+    transform: translate3d(-14px, 0, 0) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes auth-page-in-fade {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.auth-page-anim-from-right {
+  animation: auth-page-in-right 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-page-anim-from-left {
+  animation: auth-page-in-left 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-page-anim-fade {
+  animation: auth-page-in-fade 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-page-anim-from-right,
+  .auth-page-anim-from-left,
+  .auth-page-anim-fade {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .auth-premium-grain {
+    opacity: 0;
+  }
+
+  .auth-ill-float {
+    animation: none !important;
+  }
+
+  .auth-float-card {
+    transition: none !important;
+  }
+
+  .auth-float-card:hover {
+    transform: none !important;
+  }
+}
+
+/* Textura muy sutil en auth (premium, sin peso visual) */
+.auth-premium-grain {
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes auth-ill-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+.auth-ill-float {
+  animation: auth-ill-float 5.5s ease-in-out infinite;
+}
+
+/* Tarjeta auth flotante (solo hover en desktop, sin scroll extra) */
+.auth-float-card {
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s ease;
+}
+@media (min-width: 1024px) {
+  .auth-float-card:hover {
+    transform: translateY(-3px);
+  }
 }

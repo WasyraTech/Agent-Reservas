@@ -62,40 +62,42 @@ export function ConversationNotesPanel({ conversationId, initialNotes, initialTa
   }
 
   return (
-    <details className="group shrink-0 border-t border-white/[0.06] bg-[#0a1014]/95 backdrop-blur-sm">
+    <details className="group shrink-0 border-t border-[var(--wa-strip-border)] bg-[var(--wa-strip-bg)]">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-left marker:content-none [&::-webkit-details-marker]:hidden sm:px-4">
         <span className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-[var(--wa-text)]">
           <span className="w-4 text-[var(--wa-text-muted)]">›</span>
           <span>Notas del equipo</span>
           {savedHint && !dirty ? (
-            <span className="truncate text-[10px] font-normal text-emerald-400/80">{savedHint}</span>
+            <span className="truncate text-[10px] font-normal text-emerald-700">{savedHint}</span>
           ) : null}
           {dirty ? (
-            <span className="rounded bg-amber-500/15 px-1.5 py-px text-[10px] text-amber-200/90">Sin guardar</span>
+            <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-900">
+              Sin guardar
+            </span>
           ) : null}
         </span>
         <span className="shrink-0 text-[10px] text-[var(--wa-text-muted)]">Solo interno</span>
       </summary>
-      <div className="border-t border-white/[0.04] px-3 pb-2.5 pt-1.5 sm:px-4">
+      <div className="border-t border-[var(--wa-border)] px-3 pb-2.5 pt-1.5 sm:px-4">
         <div className="mx-auto flex max-w-2xl flex-col gap-1.5">
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             placeholder="Contexto interno…"
-            className="w-full resize-y rounded-lg border border-white/[0.07] bg-black/35 px-2.5 py-1.5 text-[13px] leading-snug text-[var(--wa-text)] placeholder:text-[var(--wa-text-muted)] focus:border-amber-500/25 focus:outline-none"
+            className="wa-input w-full resize-y rounded-xl px-2.5 py-1.5 text-[13px] leading-snug placeholder:text-[var(--wa-text-muted)]"
           />
           <input
             type="text"
             value={tagsRaw}
             onChange={(e) => setTagsRaw(e.target.value)}
             placeholder="Etiquetas: vip, seguimiento…"
-            className="w-full rounded-lg border border-white/[0.07] bg-black/35 px-2.5 py-1.5 text-[13px] text-[var(--wa-text)] placeholder:text-[var(--wa-text-muted)] focus:border-amber-500/25 focus:outline-none"
+            className="wa-input w-full rounded-xl px-2.5 py-1.5 text-[13px] placeholder:text-[var(--wa-text-muted)]"
           />
           <div className="flex items-center justify-between gap-2">
             {msg ? (
               <p
-                className={`text-[11px] ${msg.startsWith("Guardado") ? "text-emerald-400/90" : "text-[var(--wa-danger)]"}`}
+                className={`text-[11px] ${msg.startsWith("Guardado") ? "text-emerald-700" : "text-[var(--wa-danger)]"}`}
               >
                 {msg}
               </p>
@@ -106,7 +108,7 @@ export function ConversationNotesPanel({ conversationId, initialNotes, initialTa
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="rounded-md bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-white/15 disabled:opacity-50"
+              className="rounded-lg bg-[#25D366] px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#20bd5a] disabled:opacity-50"
             >
               {saving ? "…" : "Guardar"}
             </button>

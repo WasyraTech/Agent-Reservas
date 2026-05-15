@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AgentPersonalityPanel } from "./agent-personality-panel";
-import { ConfiguracionFlash } from "./configuracion-flash";
+import { ConfiguracionClearSecretsModal, ConfiguracionResultModal } from "./configuracion-modals";
 import { ConfiguracionFormActions } from "./configuracion-form-actions";
 import { GEMINI_MODEL_CUSTOM, geminiModelSelectValue } from "./configuracion-constants";
 import type { LlmProvider, Settings, SettingsTab } from "./configuracion-types";
 import { LlmMotorSection } from "./llm-motor-section";
+import { SettingsSectionNav } from "./settings-section-nav";
 import { SettingsTabBar } from "./settings-tab-bar";
 import { TwilioWhatsappSection } from "./twilio-whatsapp-section";
 import { GoogleCalendarSection } from "./google-calendar-section";
 import { WebhookUrlSection } from "./webhook-url-section";
+import { usePanelToast } from "@/components/PanelToast";
+import { PanelPageHeader } from "@/components/PanelPageHeader";
 
 export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
@@ -71,9 +74,11 @@ export default function ConfiguracionPage() {
   const [reminderMessageTemplate, setReminderMessageTemplate] = useState("");
 
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [clearSecretsModalOpen, setClearSecretsModalOpen] = useState(false);
   const [catalogImportMode, setCatalogImportMode] = useState<"append" | "replace">("append");
   const [catalogImporting, setCatalogImporting] = useState(false);
   const catalogFileInputRef = useRef<HTMLInputElement>(null);
+  const toast = usePanelToast();
 
   const applySettingsToState = useCallback((j: Settings) => {
     setData(j);
@@ -137,14 +142,16 @@ export default function ConfiguracionPage() {
       const j = (await res.json()) as Settings;
       applySettingsToState(j);
     } catch (e) {
+      const text = e instanceof Error ? e.message : "No se pudo cargar la configuración";
+      toast(text, "err");
       setMessage({
         type: "err",
-        text: e instanceof Error ? e.message : "No se pudo cargar la configuración",
+        text,
       });
     } finally {
       setLoading(false);
     }
-  }, [applySettingsToState]);
+  }, [applySettingsToState, toast]);
 
   useEffect(() => {
     void load();
@@ -198,14 +205,14 @@ export default function ConfiguracionPage() {
         if (!p) return `${header}${fragment}`.trim();
         return `${p}\n\n${header}${fragment}`.trim();
       });
-      setMessage({
-        type: "ok",
-        text: `Importadas ${n} filas (${ft}). Revisa el catálogo y pulsa «Guardar configuración».`,
-      });
+      setMessage(null);
+      toast(`Importadas ${n} filas (${ft}). Revisa el catálogo y pulsa «Guardar configuración».`, "info");
     } catch (err) {
+      const text = err instanceof Error ? err.message : "No se pudo importar el archivo";
+      toast(text.length > 140 ? `${text.slice(0, 140)}…` : text, "err");
       setMessage({
         type: "err",
-        text: err instanceof Error ? err.message : "No se pudo importar el archivo",
+        text,
       });
     } finally {
       setCatalogImporting(false);
@@ -286,25 +293,21 @@ export default function ConfiguracionPage() {
       }
       const j = (await res.json()) as Settings;
       applySettingsToState(j);
-      setMessage({ type: "ok", text: "Guardado correctamente." });
+      toast("Guardado correctamente.", "ok");
     } catch (err) {
+      const text = err instanceof Error ? err.message : "Error al guardar";
+      toast(text.length > 160 ? `${text.slice(0, 160)}…` : text, "err");
       setMessage({
         type: "err",
-        text: err instanceof Error ? err.message : "Error al guardar",
+        text,
       });
     } finally {
       setSaving(false);
     }
   }
 
-  async function onClearSecrets() {
-    if (
-      !confirm(
-        "¿Borrar token de Twilio, claves LLM y credenciales de Google Calendar guardadas en la base de datos?",
-      )
-    ) {
-      return;
-    }
+  async function performClearSecrets() {
+    setClearSecretsModalOpen(false);
     setSaving(true);
     setMessage(null);
     try {
@@ -322,14 +325,13 @@ export default function ConfiguracionPage() {
         throw new Error(await res.text());
       }
       await load();
-      setMessage({
-        type: "ok",
-        text: "Credenciales del panel eliminadas. Se usarán las variables de entorno si existen.",
-      });
+      toast("Credenciales del panel eliminadas. Si existen variables en la API, se usarán allí.", "ok");
     } catch (err) {
+      const text = err instanceof Error ? err.message : "Error";
+      toast(text.length > 160 ? `${text.slice(0, 160)}…` : text, "err");
       setMessage({
         type: "err",
-        text: err instanceof Error ? err.message : "Error",
+        text,
       });
     } finally {
       setSaving(false);
@@ -337,34 +339,34 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-52px)] bg-[var(--wa-bg)] pb-20">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-[#1a2830]/80 to-transparent px-6 py-8 sm:px-8">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-[var(--wa-accent)]/10 blur-3xl"
-          />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--wa-accent-soft)]/90">
-            Centro de control
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-[var(--wa-text)] sm:text-4xl">
-            Ajustes
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--wa-text-muted)]">
-            Credenciales y comportamiento del bot. Lo que guardes aquí tiene prioridad sobre el{" "}
-            <code className="rounded-md bg-black/40 px-1.5 py-0.5 text-[13px] text-[var(--wa-text)]">.env</code>{" "}
-            de la API.
-          </p>
-        </div>
+    <div className="min-h-0 flex-1 pb-16">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        <PanelPageHeader
+          eyebrow="Consola"
+          title="Ajustes"
+          subtitle={
+            <>
+              Credenciales y comportamiento del bot. Lo que guardes aquí tiene prioridad sobre el{" "}
+              <code className="rounded-md bg-[var(--wa-chip-bg)] px-1.5 py-0.5 text-[13px] text-[var(--wa-text)] ring-1 ring-[var(--wa-border)]">
+                .env
+              </code>{" "}
+              de la API.
+            </>
+          }
+        />
 
-        <div className="mt-8">
-        <ConfiguracionFlash message={message} />
+        <div className="mt-6">
 
         {loading ? (
-          <p className="mt-8 text-sm text-[var(--wa-text-muted)]">Cargando…</p>
+          <div className="mt-8 space-y-3" aria-busy="true" aria-label="Cargando ajustes">
+            <div className="h-10 w-48 animate-pulse rounded-lg bg-[var(--wa-panel)]" />
+            <div className="h-32 animate-pulse rounded-2xl bg-[var(--wa-panel)]" />
+            <div className="h-40 animate-pulse rounded-2xl bg-[var(--wa-panel)]" />
+          </div>
         ) : (
           <form onSubmit={onSave} className="mt-6">
             <SettingsTabBar tab={settingsTab} onTabChange={setSettingsTab} />
+            <SettingsSectionNav tab={settingsTab} />
 
             <p className="mt-3 text-center text-xs leading-relaxed text-[var(--wa-text-muted)] sm:text-left">
               <strong className="text-[var(--wa-text)]">Guardar</strong> aplica todo el formulario (general + agente).
@@ -408,7 +410,7 @@ export default function ConfiguracionPage() {
                     onGeminiModel={setGeminiModel}
                     data={data}
                   />
-                  <section className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
+                  <section id="cfg-reminders" className="wa-glass rounded-2xl p-6 sm:p-7">
                     <h2 className="text-lg font-semibold text-[var(--wa-text)]">Canal y recordatorios</h2>
                     <p className="mt-2 text-sm leading-relaxed text-[var(--wa-text-muted)]">
                       Confirmación en dos pasos, idioma/tono homogéneos (incluidos mensajes de error al usuario) y
@@ -431,7 +433,7 @@ export default function ConfiguracionPage() {
                           <select
                             value={agentResponseLanguage}
                             onChange={(e) => setAgentResponseLanguage(e.target.value)}
-                            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                            className="wa-input rounded-lg px-3 py-2"
                           >
                             <option value="es">Español</option>
                             <option value="en">Inglés</option>
@@ -442,7 +444,7 @@ export default function ConfiguracionPage() {
                           <select
                             value={agentToneStyle}
                             onChange={(e) => setAgentToneStyle(e.target.value)}
-                            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                            className="wa-input rounded-lg px-3 py-2"
                           >
                             <option value="professional">Profesional / ejecutivo</option>
                             <option value="formal">Formal</option>
@@ -458,7 +460,7 @@ export default function ConfiguracionPage() {
                           max={336}
                           value={reminderHoursBefore}
                           onChange={(e) => setReminderHoursBefore(Number(e.target.value))}
-                          className="w-full max-w-xs rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                          className="wa-input w-full max-w-xs rounded-lg px-3 py-2"
                         />
                       </label>
                       <label className="flex flex-col gap-1 text-sm">
@@ -470,7 +472,7 @@ export default function ConfiguracionPage() {
                           rows={3}
                           value={reminderMessageTemplate}
                           onChange={(e) => setReminderMessageTemplate(e.target.value)}
-                          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[var(--wa-text)]"
+                          className="wa-input rounded-lg px-3 py-2"
                         />
                       </label>
                     </div>
@@ -547,13 +549,21 @@ export default function ConfiguracionPage() {
                 settingsTab={settingsTab}
                 saving={saving}
                 onReload={() => void load()}
-                onClearSecrets={() => void onClearSecrets()}
+                onRequestClearSecrets={() => setClearSecretsModalOpen(true)}
               />
             </div>
           </form>
         )}
         </div>
       </div>
+
+      <ConfiguracionResultModal message={message} onClose={() => setMessage(null)} />
+      <ConfiguracionClearSecretsModal
+        open={clearSecretsModalOpen}
+        saving={saving}
+        onCancel={() => setClearSecretsModalOpen(false)}
+        onConfirm={() => void performClearSecrets()}
+      />
     </div>
   );
 }

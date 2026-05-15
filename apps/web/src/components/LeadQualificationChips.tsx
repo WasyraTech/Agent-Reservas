@@ -63,7 +63,7 @@ export function LeadQualificationChips({ q }: { q: Record<string, unknown> | nul
       {items.map(({ key, label, value }) => (
         <li
           key={key}
-          className="max-w-[14rem] truncate rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-[var(--wa-text)]"
+          className="max-w-[14rem] truncate rounded-md border border-[#e9edef] bg-white px-2 py-0.5 text-[11px] text-[var(--wa-text)] shadow-sm"
           title={`${label}: ${value}`}
         >
           <span className="text-[var(--wa-text-muted)]">{label}</span>{" "}

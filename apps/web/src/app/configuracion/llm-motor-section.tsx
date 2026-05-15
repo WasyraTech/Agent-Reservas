@@ -3,6 +3,7 @@ import {
   GEMINI_MODEL_PRESETS,
   geminiModelSelectValue,
   inputClass,
+  SECRET_PANEL_FIELD_NOTE,
 } from "./configuracion-constants";
 import { IconChip, IconGemini, IconKey, IconOpenAI, IconSpark } from "./configuracion-icons";
 import type { LlmProvider, Settings } from "./configuracion-types";
@@ -33,13 +34,13 @@ export function LlmMotorSection({
   data: Settings | null;
 }) {
   return (
-    <section className="rounded-2xl border border-[var(--wa-border)] bg-gradient-to-b from-[var(--wa-panel)] to-[#1a2329] p-6 shadow-2xl ring-1 ring-white/[0.04] sm:p-7">
+    <section id="cfg-llm" className="rounded-lg border border-[var(--wa-border)] bg-[var(--wa-card-bg)] p-6 shadow-sm sm:p-7">
       <div className="flex flex-wrap items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--wa-accent)]/20 text-[var(--wa-accent-soft)] shadow-inner ring-1 ring-[var(--wa-accent)]/25">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e7fce3] text-[#008069] shadow-sm ring-1 ring-[#b9e6c9]">
           <IconSpark className="h-7 w-7" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-white sm:text-xl">
+          <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-[var(--wa-text)] sm:text-xl">
             Motor de IA
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-[var(--wa-text-muted)] sm:text-sm">
@@ -57,28 +58,28 @@ export function LlmMotorSection({
           aria-checked={llmProvider === "openai"}
           onClick={() => onLlmProvider("openai")}
           className={[
-            "group relative flex flex-col items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 sm:p-5",
+            "group relative flex flex-col items-start gap-3 rounded-lg border p-4 text-left transition-all duration-200 sm:p-5",
             llmProvider === "openai"
-              ? "border-[var(--wa-accent)] bg-[#00a884]/10 shadow-[0_0_0_1px_rgba(0,168,132,0.35),0_12px_40px_rgba(0,0,0,0.35)] ring-2 ring-[var(--wa-accent)]/50"
-              : "border-[var(--wa-border)] bg-black/20 hover:border-white/20 hover:bg-white/[0.04]",
+              ? "border-[var(--wa-nav-indicator)] bg-[var(--wa-ok-banner-bg)] shadow-[0_0_0_1px_rgba(37,211,102,0.25)] ring-2 ring-[var(--wa-nav-indicator)]/25"
+              : "border-[var(--wa-border)] bg-[var(--wa-panel)] hover:border-[var(--wa-border)] hover:bg-[var(--wa-panel-hover)]",
           ].join(" ")}
         >
           <div className="flex w-full items-center justify-between gap-2">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/15">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--wa-header)] text-[var(--wa-accent-soft)] ring-1 ring-[var(--wa-border)]">
               <IconOpenAI className="h-6 w-6" />
             </span>
             {llmProvider === "openai" ? (
-              <span className="rounded-full bg-[var(--wa-accent)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#041016]">
+              <span className="rounded-full bg-[#25D366] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
                 Activo
               </span>
             ) : (
-              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
+              <span className="rounded-full bg-[var(--wa-chip-bg)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
                 Inactivo
               </span>
             )}
           </div>
           <div>
-            <p className="font-[family-name:var(--font-display)] text-base font-semibold text-white">OpenAI</p>
+            <p className="font-[family-name:var(--font-display)] text-base font-semibold text-[var(--wa-text)]">OpenAI</p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--wa-text-muted)]">
               Chat Completions · tools · modelos tipo GPT-4o mini
             </p>
@@ -91,28 +92,28 @@ export function LlmMotorSection({
           aria-checked={llmProvider === "gemini"}
           onClick={() => onLlmProvider("gemini")}
           className={[
-            "group relative flex flex-col items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 sm:p-5",
+            "group relative flex flex-col items-start gap-3 rounded-lg border p-4 text-left transition-all duration-200 sm:p-5",
             llmProvider === "gemini"
-              ? "border-[#a78bfa] bg-gradient-to-br from-violet-500/15 to-sky-500/10 shadow-[0_0_0_1px_rgba(167,139,250,0.4),0_12px_40px_rgba(0,0,0,0.35)] ring-2 ring-violet-400/40"
-              : "border-[var(--wa-border)] bg-black/20 hover:border-white/20 hover:bg-white/[0.04]",
+              ? "border-[var(--wa-accent-soft)] bg-[var(--wa-ok-banner-bg)] shadow-[0_0_0_1px_rgba(0,128,105,0.25)] ring-2 ring-[var(--wa-accent-soft)]/25"
+              : "border-[var(--wa-border)] bg-[var(--wa-panel)] hover:border-[var(--wa-border)] hover:bg-[var(--wa-panel-hover)]",
           ].join(" ")}
         >
           <div className="flex w-full items-center justify-between gap-2">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/30 ring-1 ring-white/10">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--wa-header)] text-[var(--wa-accent-soft)] ring-1 ring-[var(--wa-border)]">
               <IconGemini className="h-7 w-7" />
             </span>
             {llmProvider === "gemini" ? (
-              <span className="rounded-full bg-gradient-to-r from-sky-400 to-violet-400 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#0b141a]">
+              <span className="rounded-full bg-[#008069] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
                 Activo
               </span>
             ) : (
-              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
+              <span className="rounded-full bg-[var(--wa-chip-bg)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
                 Inactivo
               </span>
             )}
           </div>
           <div>
-            <p className="font-[family-name:var(--font-display)] text-base font-semibold text-white">Google Gemini</p>
+            <p className="font-[family-name:var(--font-display)] text-base font-semibold text-[var(--wa-text)]">Google Gemini</p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--wa-text-muted)]">
               Google AI Studio · tools · modelos Flash / Pro
             </p>
@@ -120,7 +121,7 @@ export function LlmMotorSection({
         </button>
       </div>
 
-      <div className="mt-2 flex items-center gap-2 rounded-xl border border-dashed border-white/10 bg-black/20 px-3 py-2 text-[11px] text-[var(--wa-text-muted)]">
+      <div className="mt-2 flex items-center gap-2 rounded-lg border border-dashed border-[var(--wa-border)] bg-[var(--wa-strip-bg)] px-3 py-2 text-[11px] text-[var(--wa-text-muted)]">
         <span className="text-base" aria-hidden>
           ℹ️
         </span>
@@ -133,7 +134,7 @@ export function LlmMotorSection({
             id="llm-provider-select"
             value={llmProvider}
             onChange={(e) => onLlmProvider(e.target.value as LlmProvider)}
-            className="ml-1 inline-block max-w-[11rem] rounded-lg border border-[var(--wa-border)] bg-[#2a3942] px-2 py-1 text-[11px] font-medium text-[var(--wa-text)] focus:border-[var(--wa-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--wa-accent)]"
+            className="wa-input ml-1 inline-block max-w-[11rem] rounded-lg px-2 py-1 text-[11px] font-medium"
           >
             <option value="openai">OpenAI</option>
             <option value="gemini">Google Gemini</option>
@@ -142,10 +143,10 @@ export function LlmMotorSection({
       </div>
 
       {llmProvider === "openai" ? (
-        <div className="mt-8 rounded-2xl border border-[var(--wa-accent)]/40 bg-[#0d151a]/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-6">
-          <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-3">
-            <IconOpenAI className="h-5 w-5 text-[var(--wa-accent-soft)]" />
-            <h3 className="font-[family-name:var(--font-display)] text-sm font-semibold text-white">Credenciales OpenAI</h3>
+        <div className="mt-8 rounded-lg border border-[var(--wa-border)] bg-[var(--wa-strip-bg)] p-5 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--wa-border)] pb-3">
+            <IconOpenAI className="h-5 w-5 text-[#008069]" />
+            <h3 className="font-[family-name:var(--font-display)] text-sm font-semibold text-[var(--wa-text)]">Credenciales OpenAI</h3>
           </div>
           <p className="mt-3 text-xs text-[var(--wa-text-muted)]">
             Clave en{" "}
@@ -158,7 +159,7 @@ export function LlmMotorSection({
               platform.openai.com/api-keys
             </a>
             . Suele empezar por{" "}
-            <code className="rounded-md bg-black/40 px-1.5 py-0.5 text-[var(--wa-text)]">sk-</code>.
+            <code className="rounded-md bg-[var(--wa-chip-bg)] px-1.5 py-0.5 text-[13px] text-[var(--wa-text)] ring-1 ring-[var(--wa-border)]">sk-</code>.
           </p>
           <div className="mt-4">
             <label className="flex items-center gap-2 text-sm font-medium text-[var(--wa-text-muted)]">
@@ -173,6 +174,7 @@ export function LlmMotorSection({
               placeholder={data?.openai_api_key_configured ? "Dejar vacío para no cambiar" : "sk-..."}
               autoComplete="off"
             />
+            <p className="mt-1 text-xs text-[var(--wa-text-muted)]">{SECRET_PANEL_FIELD_NOTE}</p>
           </div>
           <div className="mt-4">
             <label className="flex items-center gap-2 text-sm font-medium text-[var(--wa-text-muted)]">
@@ -190,10 +192,10 @@ export function LlmMotorSection({
       ) : null}
 
       {llmProvider === "gemini" ? (
-        <div className="mt-8 rounded-2xl border border-violet-400/35 bg-gradient-to-br from-[#121a22] to-[#0f1419] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-6">
-          <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-3">
-            <IconGemini className="h-6 w-6 shrink-0" />
-            <h3 className="font-[family-name:var(--font-display)] text-sm font-semibold text-white">Credenciales Gemini</h3>
+        <div className="mt-8 rounded-lg border border-[var(--wa-border)] bg-[var(--wa-strip-bg)] p-5 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--wa-border)] pb-3">
+            <IconGemini className="h-6 w-6 shrink-0 text-[#008069]" />
+            <h3 className="font-[family-name:var(--font-display)] text-sm font-semibold text-[var(--wa-text)]">Credenciales Gemini</h3>
           </div>
           <p className="mt-3 text-xs text-[var(--wa-text-muted)]">
             Crea una clave en{" "}
@@ -206,7 +208,7 @@ export function LlmMotorSection({
               Google AI Studio
             </a>
             . No es el formato{" "}
-            <code className="rounded-md bg-black/40 px-1.5 py-0.5 text-[var(--wa-text)]">sk-</code> de OpenAI.
+            <code className="rounded-md bg-[var(--wa-chip-bg)] px-1.5 py-0.5 text-[13px] text-[var(--wa-text)] ring-1 ring-[var(--wa-border)]">sk-</code> de OpenAI.
           </p>
           <div className="mt-4">
             <label className="flex items-center gap-2 text-sm font-medium text-[var(--wa-text-muted)]">
@@ -223,6 +225,7 @@ export function LlmMotorSection({
               }
               autoComplete="off"
             />
+            <p className="mt-1 text-xs text-[var(--wa-text-muted)]">{SECRET_PANEL_FIELD_NOTE}</p>
           </div>
           <div className="mt-4">
             <label className="flex items-center gap-2 text-sm font-medium text-[var(--wa-text-muted)]">
@@ -267,7 +270,7 @@ export function LlmMotorSection({
               <span>
                 Cada modelo tiene RPM/RPD propios; <strong className="text-[var(--wa-text)]">2.5 Flash</strong> suele ir
                 bien en gratuito. Si ves{" "}
-                <code className="rounded-md bg-black/40 px-1 py-0.5 text-[var(--wa-text)]">limit: 0</code>, revisa{" "}
+                <code className="rounded-md bg-[var(--wa-chip-bg)] px-1 py-0.5 text-[13px] text-[var(--wa-text)] ring-1 ring-[var(--wa-border)]">limit: 0</code>, revisa{" "}
                 <a
                   href="https://ai.google.dev/gemini-api/docs/rate-limits"
                   className="font-medium text-[var(--wa-link)] underline-offset-2 hover:underline"

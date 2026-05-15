@@ -1,7 +1,11 @@
 export const inputClass =
-  "mt-1 w-full rounded-lg border border-[var(--wa-border)] bg-[#2a3942] px-3 py-2.5 text-sm text-[var(--wa-text)] shadow-inner placeholder:text-[var(--wa-text-muted)] focus:border-[var(--wa-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--wa-accent)]";
+  "wa-input mt-1 w-full rounded-lg px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--wa-text-muted)] focus:ring-2 focus:ring-[#25D366]/25";
 
 export const textareaClass = `${inputClass} min-h-[120px] resize-y leading-relaxed`;
+
+/** Texto unificado bajo campos secretos del panel (no se muestra lo guardado; vacío = no cambiar). */
+export const SECRET_PANEL_FIELD_NOTE =
+  "El valor guardado no se muestra en pantalla. Deja el campo vacío para no cambiarlo; solo se envía al pulsar «Guardar configuración».";
 
 /** IDs válidos para la API Gemini (Developer); elige según cuotas en Google AI Studio. */
 export const GEMINI_MODEL_PRESETS: { value: string; label: string }[] = [

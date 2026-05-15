@@ -77,9 +77,9 @@ export function ServicesListEditor({
           {rows.map((r, idx) => (
             <div
               key={r.id}
-              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-transparent p-4 shadow-inner ring-1 ring-white/[0.03]"
+              className="relative overflow-hidden rounded-lg border border-[var(--wa-border)] bg-[var(--wa-card-bg)] p-4 shadow-sm ring-1 ring-black/[0.03]"
             >
-              <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-[var(--wa-accent)] to-sky-500/60" />
+              <div className="absolute left-0 top-0 h-full w-1 rounded-l-lg bg-[#25D366]" />
               <div className="pl-3">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--wa-text-muted)]">

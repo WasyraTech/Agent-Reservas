@@ -135,6 +135,46 @@ El webhook encola la generación de respuesta y el **worker** envía el mensaje 
 
 ---
 
+## Capturas del panel (UI)
+
+Vista del panel **Next.js** (tema claro): acceso con **Twilio Verify**, inbox de chats, citas, ajustes del agente y estado del API.
+
+### Inicio de sesión y registro
+
+| Inicio de sesión (OTP) | Alta de negocio + admin |
+|:-:|:-:|
+| ![Pantalla de inicio de sesión con teléfono y código OTP](docs/screenshots/panel-login.png) | ![Pantalla de registro con nombre de negocio y OTP](docs/screenshots/panel-register.png) |
+
+### Chats, citas y configuración
+
+| Inbox de conversaciones | Citas y filtros | Ajustes (Twilio, LLM, Calendar…) |
+|:-:|:-:|:-:|
+| ![Lista de chats y panel lateral](docs/screenshots/panel-chats.png) | ![Vista de citas con exportación](docs/screenshots/panel-citas.png) | ![Pestañas de configuración del agente](docs/screenshots/panel-configuracion.png) |
+
+### Estado del despliegue
+
+![Versión API, commit y salud de base de datos](docs/screenshots/panel-estado.png)
+
+Para **regenerar** estas imágenes en `docs/screenshots/` (mismos nombres de archivo): levanta la **API** (`docker compose up` o `uvicorn` en `8000`), en otra terminal arranca el web en modo dev con sesión opcional desactivada y ejecuta el script:
+
+```powershell
+cd apps/web
+$env:PANEL_SESSION_REQUIRED="false"
+$env:BACKEND_URL="http://127.0.0.1:8000"
+npm run dev -- -p 3010
+```
+
+En otra terminal (con el dev server ya arriba):
+
+```powershell
+cd apps/web
+npx playwright install chromium   # solo la primera vez
+$env:SCREENSHOT_BASE_URL="http://127.0.0.1:3010"
+npm run readme:capture
+```
+
+---
+
 ## Lo que ves en el panel
 
 | Ruta | Función |
@@ -237,6 +277,8 @@ OpenAPI en vivo: `http://localhost:8000/docs` con la API levantada.
 
 ```
 .
+├── docs/
+│   └── screenshots/       Capturas del panel para README (ver sección «Capturas del panel»)
 ├── apps/
 │   ├── api/                 FastAPI, webhooks, agente, migraciones
 │   │   ├── app/

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 import { forwardedRequestId } from "@/lib/backend-proxy";
 import { getBackendUrl, getInternalApiKey } from "@/lib/env";
+import { panelSessionMaxAgeSec } from "@/lib/panel-session-cookie";
 
 const COOKIE = "ar_panel_session";
-const MAX_AGE_SEC = 60 * 60 * 24 * 14;
 
 export async function POST(req: Request) {
   const rid = forwardedRequestId(req);
@@ -15,7 +15,18 @@ export async function POST(req: Request) {
     const msg = e instanceof Error ? e.message : "Config error";
     return NextResponse.json({ detail: msg, request_id: rid }, { status: 500 });
   }
-  const body = await req.text();
+  let parsedBody: { phone_e164?: string; code?: string; business_name?: string; remember_me?: boolean };
+  try {
+    parsedBody = (await req.json()) as typeof parsedBody;
+  } catch {
+    return NextResponse.json({ detail: "Cuerpo JSON inválido", request_id: rid }, { status: 400 });
+  }
+  const rememberMe = Boolean(parsedBody.remember_me);
+  const body = JSON.stringify({
+    phone_e164: parsedBody.phone_e164,
+    code: parsedBody.code,
+    business_name: parsedBody.business_name,
+  });
   const url = `${getBackendUrl()}/internal/panel/auth/register/verify`;
   const res = await fetch(url, {
     method: "POST",
@@ -58,7 +69,7 @@ export async function POST(req: Request) {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: MAX_AGE_SEC,
+    maxAge: panelSessionMaxAgeSec(rememberMe),
     secure: process.env.NODE_ENV === "production",
   });
   out.headers.set("X-Request-ID", outRid);

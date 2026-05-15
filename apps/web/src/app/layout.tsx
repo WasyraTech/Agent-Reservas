@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 
-import { AppNav } from "@/components/AppNav";
+import { AppShell } from "@/components/AppShell";
 import { AppTour } from "@/components/AppTour";
 import { fetchPanelMe } from "@/lib/server-api";
 import "./globals.css";
@@ -14,12 +14,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -35,12 +29,9 @@ export default async function RootLayout({
   const panelUser = await fetchPanelMe();
   return (
     <html lang="es">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} min-h-screen antialiased`}
-      >
-        <AppNav panelUser={panelUser} />
+      <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh antialiased`}>
+        <AppShell panelUser={panelUser}>{children}</AppShell>
         <AppTour />
-        {children}
       </body>
     </html>
   );

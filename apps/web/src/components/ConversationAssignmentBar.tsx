@@ -83,18 +83,18 @@ export function ConversationAssignmentBar({
   const unassigned = !assignedOperatorId;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-black/25 px-3 py-2 text-[11px] text-[var(--wa-text-muted)]">
+    <div className="flex flex-wrap items-center gap-2 border-b border-[var(--wa-strip-border)] bg-[var(--wa-strip-bg)] px-3 py-2 text-[11px] text-[var(--wa-text-muted)]">
       {unassigned ? (
         <button
           type="button"
           disabled={loading}
           onClick={() => void claim()}
-          className="rounded-lg bg-[var(--wa-accent)]/20 px-2.5 py-1 font-medium text-[var(--wa-accent-soft)] ring-1 ring-[var(--wa-accent)]/35 hover:bg-[var(--wa-accent)]/30 disabled:opacity-50"
+          className="rounded-lg bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#20bd5a] disabled:opacity-50"
         >
           Tomar conversación
         </button>
       ) : (
-        <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[var(--wa-text)]">
+        <span className="rounded-lg bg-[var(--wa-chip-bg)] px-2 py-0.5 text-[var(--wa-text)] ring-1 ring-[var(--wa-border)]">
           Asignada a operador
         </span>
       )}
@@ -102,7 +102,7 @@ export function ConversationAssignmentBar({
         <label className="flex items-center gap-1.5">
           <span className="uppercase tracking-wide">Reasignar</span>
           <select
-            className="max-w-[14rem] rounded border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--wa-text)]"
+            className="wa-input max-w-[14rem] rounded-lg px-2 py-1 text-[11px]"
             disabled={loading}
             value={assignedOperatorId ?? ""}
             onChange={(e) => void assignTo(e.target.value)}
@@ -116,7 +116,7 @@ export function ConversationAssignmentBar({
           </select>
         </label>
       ) : null}
-      {msg ? <span className="text-red-300/90">{msg}</span> : null}
+      {msg ? <span className="text-red-600">{msg}</span> : null}
     </div>
   );
 }

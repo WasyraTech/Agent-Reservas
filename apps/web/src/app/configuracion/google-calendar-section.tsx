@@ -1,4 +1,4 @@
-import { inputClass, textareaClass } from "./configuracion-constants";
+import { inputClass, textareaClass, SECRET_PANEL_FIELD_NOTE } from "./configuracion-constants";
 import type { Settings } from "./configuracion-types";
 
 export function GoogleCalendarSection({
@@ -15,7 +15,7 @@ export function GoogleCalendarSection({
   data: Settings | null;
 }) {
   return (
-    <section className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
+    <section id="cfg-calendar" className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
       <h2 className="text-lg font-semibold text-[var(--wa-text)]">Google Calendar (agenda)</h2>
       <p className="mt-2 text-sm leading-relaxed text-[var(--wa-text-muted)]">
         Cuenta de servicio con API Calendar habilitada; comparte el calendario con el correo{" "}
@@ -51,6 +51,7 @@ export function GoogleCalendarSection({
           placeholder='{"type": "service_account", "project_id": "...", ...}'
           spellCheck={false}
         />
+        <p className="mt-1 text-xs text-[var(--wa-text-muted)]">{SECRET_PANEL_FIELD_NOTE}</p>
       </div>
     </section>
   );

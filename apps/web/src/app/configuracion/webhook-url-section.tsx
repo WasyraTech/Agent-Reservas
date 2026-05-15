@@ -15,7 +15,7 @@ export function WebhookUrlSection({
   data: Settings | null;
 }) {
   return (
-    <section className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
+    <section id="cfg-webhook" className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-panel)] p-6 shadow-xl sm:p-7">
       <h2 className="text-lg font-semibold text-[var(--wa-text)]">URL pública del webhook</h2>
       <p className="mt-2 text-sm leading-relaxed text-[var(--wa-text-muted)]">
         Twilio debe poder llamar por HTTPS a tu API. Suele ser la URL de <strong>ngrok</strong>,{" "}

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import and_, exists, func, or_, select, text
+from sqlalchemy import and_, desc, exists, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -86,6 +86,8 @@ class ConversationSummary(BaseModel):
     has_pending_handoff: bool = False
     last_agent_llm_error_snippet: str | None = None
     assigned_operator_id: UUID | None = None
+    last_message_preview: str | None = None
+    last_message_direction: str | None = None
 
 
 class HandoffBrief(BaseModel):
@@ -279,6 +281,21 @@ async def list_conversations(
         .group_by(Message.conversation_id)
         .subquery()
     )
+    msg_ranked = (
+        select(
+            Message.conversation_id,
+            Message.body,
+            Message.direction,
+            func.row_number()
+            .over(partition_by=Message.conversation_id, order_by=desc(Message.created_at))
+            .label("rn"),
+        ).subquery()
+    )
+    last_msg_sq = (
+        select(msg_ranked.c.conversation_id, msg_ranked.c.body, msg_ranked.c.direction)
+        .where(msg_ranked.c.rn == 1)
+        .subquery()
+    )
     handoff_pending_sq = (
         select(1)
         .select_from(Handoff)
@@ -292,7 +309,11 @@ async def list_conversations(
         Conversation,
         func.coalesce(count_sq.c.cnt, 0).label("message_count"),
         handoff_pending_sq.label("has_pending_handoff"),
-    ).outerjoin(count_sq, count_sq.c.conversation_id == Conversation.id)
+        last_msg_sq.c.body.label("last_message_body"),
+        last_msg_sq.c.direction.label("last_message_direction"),
+    ).outerjoin(count_sq, count_sq.c.conversation_id == Conversation.id).outerjoin(
+        last_msg_sq, last_msg_sq.c.conversation_id == Conversation.id
+    )
     conds = [_conversation_scope(ic)]
     conds.extend(_conversation_filters(q=q, status=status, date_from=date_from, date_to=date_to))
     if conds:
@@ -301,13 +322,22 @@ async def list_conversations(
     result = await db.execute(stmt)
     rows = result.all()
     out: list[ConversationSummary] = []
-    for conv, msg_count, has_ph in rows:
+    for conv, msg_count, has_ph, last_body, last_dir in rows:
         llm = getattr(conv, "last_agent_llm_status", None) or "ok"
         err = getattr(conv, "last_agent_llm_error", None)
         snippet: str | None = None
         if err:
             s = str(err).strip()
             snippet = s[:200] + ("…" if len(s) > 200 else "")
+        preview: str | None = None
+        if last_body is not None:
+            raw = str(last_body).strip()
+            if raw:
+                preview = raw[:140] + ("…" if len(raw) > 140 else "")
+        dir_out: str | None = None
+        if last_dir is not None:
+            d = getattr(last_dir, "value", last_dir)
+            dir_out = str(d)
         out.append(
             ConversationSummary(
                 id=conv.id,
@@ -320,6 +350,8 @@ async def list_conversations(
                 has_pending_handoff=bool(has_ph),
                 last_agent_llm_error_snippet=snippet,
                 assigned_operator_id=getattr(conv, "assigned_operator_id", None),
+                last_message_preview=preview,
+                last_message_direction=dir_out,
             )
         )
     return out

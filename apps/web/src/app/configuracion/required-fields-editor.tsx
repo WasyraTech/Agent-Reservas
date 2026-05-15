@@ -33,7 +33,7 @@ export function RequiredFieldsEditor({
   );
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-[var(--wa-border)] bg-[var(--wa-strip-bg)] p-4">
       <p className="text-xs text-[var(--wa-text-muted)]">
         Marca lo que el bot debe intentar recoger antes de confirmar la cita.
       </p>

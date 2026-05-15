@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,22 +26,32 @@ from app.services.twilio_verify_otp import check_verification_code, send_verific
 router = APIRouter(prefix="/internal/panel/auth", tags=["panel-auth"])
 
 
+def _coerce_phone_e164(v: object) -> str:
+    if not isinstance(v, str):
+        raise ValueError("El teléfono debe enviarse como texto.")
+    return normalize_e164(v)
+
+
+# Tras BeforeValidator el valor ya es E.164 (+…, 10–19 caracteres típicos)
+_PhoneE164 = Annotated[str, BeforeValidator(_coerce_phone_e164), Field(max_length=24)]
+
+
 class AuthStartIn(BaseModel):
-    phone_e164: str = Field(..., min_length=10, max_length=24)
+    phone_e164: _PhoneE164
 
 
 class AuthVerifyIn(BaseModel):
-    phone_e164: str = Field(..., min_length=10, max_length=24)
+    phone_e164: _PhoneE164
     code: str = Field(..., min_length=4, max_length=12)
 
 
 class RegisterStartIn(BaseModel):
-    phone_e164: str = Field(..., min_length=10, max_length=24)
+    phone_e164: _PhoneE164
     business_name: str = Field(..., min_length=2, max_length=120)
 
 
 class RegisterVerifyIn(BaseModel):
-    phone_e164: str = Field(..., min_length=10, max_length=24)
+    phone_e164: _PhoneE164
     code: str = Field(..., min_length=4, max_length=12)
     business_name: str = Field(..., min_length=2, max_length=120)
 
@@ -93,10 +103,7 @@ async def auth_start(
 
     Solo si el número ya tiene cuenta.
     """
-    try:
-        phone = normalize_e164(body.phone_e164)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    phone = body.phone_e164
     op = await _operator_by_phone(db, phone)
     if op is None:
         return {"detail": "ok"}
@@ -123,14 +130,18 @@ async def auth_verify(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(require_master_internal_api_key)],
 ) -> AuthVerifyOut:
-    try:
-        phone = normalize_e164(body.phone_e164)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    phone = body.phone_e164
     op = await _operator_by_phone(db, phone)
     if op is None:
         raise HTTPException(status_code=401, detail="Código o teléfono incorrecto")
-    if not check_verification_code(phone, body.code):
+    try:
+        ok = check_verification_code(phone, body.code)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    if not ok:
         raise HTTPException(status_code=401, detail="Código o teléfono incorrecto")
     raw = secrets.token_urlsafe(32)
     th = hash_panel_session_token(raw)
@@ -159,10 +170,7 @@ async def register_start(
     _: Annotated[None, Depends(require_master_internal_api_key)],
 ) -> dict[str, str]:
     """OTP para alta pública: el número no debe existir aún como operador."""
-    try:
-        phone = normalize_e164(body.phone_e164)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    phone = body.phone_e164
     if await _operator_by_phone(db, phone) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -192,16 +200,20 @@ async def register_verify(
     _: Annotated[None, Depends(require_master_internal_api_key)],
 ) -> AuthVerifyOut:
     """Crea workspace + configuración + admin y abre sesión tras OTP válido."""
-    try:
-        phone = normalize_e164(body.phone_e164)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    phone = body.phone_e164
     if await _operator_by_phone(db, phone) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Este número ya está registrado. Inicia sesión.",
         )
-    if not check_verification_code(phone, body.code):
+    try:
+        ok = check_verification_code(phone, body.code)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    if not ok:
         raise HTTPException(status_code=401, detail="Código incorrecto o caducado")
 
     biz = body.business_name.strip()

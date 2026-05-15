@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { IconEscalate } from "@/components/panel-icons";
+
 type Props = {
   conversationId: string;
   currentStatus: string;
@@ -43,8 +45,9 @@ export function HandoffButton({ conversationId, currentStatus }: Props) {
         type="button"
         onClick={onHandoff}
         disabled={disabled}
-        className="rounded-full border border-amber-400/40 bg-gradient-to-br from-amber-500/20 to-orange-600/10 px-3.5 py-1.5 text-xs font-semibold text-amber-50 shadow-md backdrop-blur-sm transition hover:from-amber-500/30 hover:to-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2 text-[12px] font-semibold text-[#92400e] shadow-sm transition hover:bg-[#fef3c7] disabled:cursor-not-allowed disabled:opacity-40"
       >
+        <IconEscalate className="h-4 w-4 shrink-0 opacity-90" />
         {currentStatus === "handed_off" ? "Escalada" : loading ? "…" : "Escalar"}
       </button>
       {message ? (

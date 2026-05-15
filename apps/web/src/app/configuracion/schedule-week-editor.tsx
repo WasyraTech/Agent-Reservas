@@ -77,16 +77,16 @@ export function ScheduleWeekEditor({
         <button
           type="button"
           onClick={applyPresetWeekend}
-          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[var(--wa-text-muted)] transition hover:bg-white/[0.08] hover:text-[var(--wa-text)]"
+          className="rounded-full border border-[var(--wa-border)] bg-[var(--wa-panel)] px-3 py-1.5 text-xs font-semibold text-[var(--wa-text-muted)] transition hover:bg-[var(--wa-panel-hover)] hover:text-[var(--wa-text)]"
         >
           Sáb solo mañana · Dom cerrado
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent">
+      <div className="overflow-x-auto rounded-lg border border-[var(--wa-border)] bg-[var(--wa-card-bg)] shadow-sm">
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-[11px] uppercase tracking-wide text-[var(--wa-text-muted)]">
+            <tr className="border-b border-[var(--wa-border)] text-[11px] uppercase tracking-wide text-[var(--wa-text-muted)]">
               <th className="px-3 py-3 pl-4 font-medium">Día</th>
               <th className="px-2 py-3 font-medium">Abierto</th>
               <th className="px-2 py-3 font-medium">Mañana</th>
@@ -98,7 +98,7 @@ export function ScheduleWeekEditor({
             {rows.map((d) => (
               <tr
                 key={d.key}
-                className="border-b border-white/[0.04] transition hover:bg-white/[0.02] last:border-0"
+                className="border-b border-[var(--wa-border)] transition hover:bg-[var(--wa-panel-hover)] last:border-0"
               >
                 <td className="px-3 py-2.5 pl-4 font-medium text-[var(--wa-text)]">{WEEKDAY_LABELS[d.key]}</td>
                 <td className="px-2 py-2.5">
@@ -109,12 +109,12 @@ export function ScheduleWeekEditor({
                     onClick={() => commit(patchRow(rows, d.key, { open: !d.open }))}
                     className={[
                       "relative h-7 w-12 rounded-full transition-colors",
-                      d.open ? "bg-[var(--wa-accent)]" : "bg-white/15",
+                      d.open ? "bg-[var(--wa-accent)]" : "bg-[var(--wa-border)]",
                     ].join(" ")}
                   >
                     <span
                       className={[
-                        "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                        "absolute top-0.5 h-6 w-6 rounded-full bg-[var(--wa-card-bg)] shadow transition-transform",
                         d.open ? "left-5" : "left-0.5",
                       ].join(" ")}
                     />

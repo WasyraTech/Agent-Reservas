@@ -1,5 +1,7 @@
 "use client";
 
+import { IconDownload } from "@/components/panel-icons";
+import { usePanelToast } from "@/components/PanelToast";
 import type { AppointmentListItem } from "@/lib/server-api";
 
 function csvEscape(s: string): string {
@@ -8,6 +10,8 @@ function csvEscape(s: string): string {
 }
 
 export function AppointmentsExportButton({ rows }: { rows: AppointmentListItem[] }) {
+  const toast = usePanelToast();
+
   function downloadCsv() {
     const headers = [
       "id",
@@ -47,14 +51,16 @@ export function AppointmentsExportButton({ rows }: { rows: AppointmentListItem[]
     a.download = `citas-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toast("CSV descargado");
   }
 
   return (
     <button
       type="button"
       onClick={downloadCsv}
-      className="rounded-lg border border-white/15 bg-black/30 px-4 py-2 text-sm font-medium text-[var(--wa-text)] transition hover:bg-white/10"
+      className="inline-flex items-center gap-2 rounded-xl border border-[var(--wa-border)] bg-[var(--wa-panel)] px-4 py-2 text-sm font-semibold text-[var(--wa-accent-soft)] shadow-sm ring-1 ring-[var(--wa-border)]/80 transition hover:border-[var(--wa-accent)]/35 hover:bg-[var(--wa-panel-hover)] active:scale-[0.99] motion-reduce:active:scale-100"
     >
+      <IconDownload className="h-4 w-4 shrink-0" aria-hidden />
       Exportar CSV
     </button>
   );

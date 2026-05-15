@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ChatConversationToolbar } from "@/components/ChatConversationToolbar";
+import { ChatMarkRead } from "@/components/ChatMarkRead";
+import { ChatMessageThread } from "@/components/ChatMessageThread";
+import { IconChevronLeft, IconDotFilled } from "@/components/panel-icons";
 import { ChatDetailRefresh } from "@/components/ChatDetailRefresh";
 import { ConversationAssignmentBar } from "@/components/ConversationAssignmentBar";
 import { ConversationNotesPanel } from "@/components/ConversationNotesPanel";
@@ -33,6 +37,7 @@ export default async function ChatDetailPage({ params }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <ChatMarkRead conversationId={data.id} />
       <ChatDetailRefresh
         conversationId={data.id}
         initialUpdatedAt={data.updated_at}
@@ -45,16 +50,16 @@ export default async function ChatDetailPage({ params }: Props) {
           isAdmin={me.role === "admin"}
         />
       ) : null}
-      <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] bg-gradient-to-b from-[#1e2a32] to-[var(--wa-panel)] px-3 py-2 shadow-lg sm:px-4">
+      <header className="flex shrink-0 items-center gap-3 border-b border-[#e9edef] bg-[#f0f2f5]/95 px-3 py-2 shadow-[0_1px_0_rgba(255,255,255,0.85)_inset] backdrop-blur-sm sm:px-4">
         <Link
           href="/chats"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--wa-text-muted)] transition hover:bg-white/10 hover:text-white md:hidden"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--wa-text-muted)] transition hover:bg-[var(--wa-panel-hover)] hover:text-[var(--wa-text)] active:scale-95 md:hidden"
           aria-label="Lista de chats"
         >
-          <span className="text-xl">‹</span>
+          <IconChevronLeft className="h-6 w-6" />
         </Link>
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-lg ring-2 ring-black/30 sm:h-11 sm:w-11"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-1 ring-black/5 sm:h-11 sm:w-11"
           style={{
             background: `linear-gradient(145deg, hsl(${hue},58%,44%), hsl(${(hue + 42) % 360},52%,30%))`,
           }}
@@ -63,18 +68,29 @@ export default async function ChatDetailPage({ params }: Props) {
           {glyph}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="font-[family-name:var(--font-display)] truncate text-base font-semibold text-white sm:text-[17px]">
+          <h1 className="truncate text-base font-semibold text-[var(--wa-text)] sm:text-[17px]">
             {title}
           </h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate text-[11px] text-[var(--wa-text-muted)]">
             {data.status === "open" ? (
-              <span className="text-[var(--wa-accent-soft)]">● </span>
+              <span className="inline-flex items-center" title="Conversación abierta">
+                <IconDotFilled className="h-2.5 w-2.5 text-[#25D366]" aria-hidden />
+                <span className="sr-only">Conversación abierta</span>
+              </span>
             ) : null}
-            <span>{data.status}</span>
+            <span className="rounded-md bg-white/80 px-1.5 py-px font-medium text-[#54656f] ring-1 ring-[#e9edef]">
+              {data.status}
+            </span>
+            <span className="hidden text-[#c8ccd0] sm:inline" aria-hidden>
+              ·
+            </span>
+            <span className="hidden sm:inline" title="El panel consulta la conversación en segundo plano">
+              Auto-actualización ~16 s
+            </span>
             {llmBad ? (
               <>
                 <span
-                  className="inline-flex cursor-help items-center rounded bg-red-500/25 px-1.5 py-px text-[10px] font-semibold uppercase text-red-100"
+                  className="inline-flex cursor-help items-center rounded-md bg-red-50 px-1.5 py-px text-[10px] font-semibold uppercase text-red-700 ring-1 ring-red-100"
                   title={
                     [
                       "El asistente automático no pudo generar bien la última respuesta.",
@@ -101,20 +117,22 @@ export default async function ChatDetailPage({ params }: Props) {
         <HandoffButton conversationId={data.id} currentStatus={data.status} />
       </header>
 
+      <ChatConversationToolbar conversationId={data.id} twilioFrom={data.twilio_from} />
+
       {(showHandoffStrip || data.lead || hasAppts) && (
-        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/[0.04] bg-black/30 px-2.5 py-1.5 sm:px-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-[var(--wa-strip-border)] bg-[var(--wa-strip-bg)] px-2.5 py-1.5 sm:px-3">
           {showHandoffStrip ? (
             <span
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-amber-400/20 bg-amber-950/40 px-2 py-0.5 text-[11px] text-amber-50/95"
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-[#fde68a] bg-[#fffbeb] px-2 py-0.5 text-[11px] text-[#92400e]"
               title={
                 data.pending_handoff
                   ? `Motivo: ${data.pending_handoff.reason}`
                   : "Conversación marcada como handed_off"
               }
             >
-              <span className="font-semibold text-amber-100/95">Escalado</span>
+              <span className="font-semibold text-[#78350f]">Escalado</span>
               {data.pending_handoff ? (
-                <span className="max-w-[12rem] truncate text-amber-100/75">
+                <span className="max-w-[12rem] truncate text-[#92400e]">
                   · {data.pending_handoff.reason}
                 </span>
               ) : null}
@@ -125,14 +143,14 @@ export default async function ChatDetailPage({ params }: Props) {
 
           {data.lead ? (
             <>
-              {showHandoffStrip ? <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden /> : null}
+              {showHandoffStrip ? <span className="hidden h-3 w-px bg-[var(--wa-border)] sm:block" aria-hidden /> : null}
               <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
                 Lead
               </span>
               <span className="max-w-[8rem] truncate text-[12px] font-medium text-[var(--wa-text)] sm:max-w-[10rem]">
                 {data.lead.name ?? "Sin nombre"}
               </span>
-              <span className="rounded bg-white/[0.08] px-1.5 py-px text-[10px] font-medium uppercase text-[var(--wa-text-muted)]">
+              <span className="rounded bg-[var(--wa-chip-bg)] px-1.5 py-px text-[10px] font-medium uppercase text-[var(--wa-text-muted)]">
                 {data.lead.stage}
               </span>
               <div className="flex w-full min-w-0 basis-full flex-wrap items-center gap-1 sm:basis-auto sm:w-auto">
@@ -144,7 +162,7 @@ export default async function ChatDetailPage({ params }: Props) {
           {hasAppts ? (
             <>
               {showHandoffStrip || data.lead ? (
-                <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden />
+                <span className="hidden h-3 w-px bg-[var(--wa-border)] sm:block" aria-hidden />
               ) : null}
               <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--wa-text-muted)]">
                 Citas
@@ -154,7 +172,7 @@ export default async function ChatDetailPage({ params }: Props) {
                   <span
                     key={a.id}
                     title={a.service_label ?? ""}
-                    className="max-w-[10rem] truncate rounded-full bg-white/[0.08] px-2 py-0.5 text-[11px] text-[var(--wa-text)]"
+                    className="max-w-[10rem] truncate rounded-full bg-[var(--wa-chip-bg)] px-2 py-0.5 text-[11px] text-[var(--wa-text)]"
                   >
                     {new Date(a.start_at).toLocaleString(undefined, {
                       month: "short",
@@ -179,7 +197,7 @@ export default async function ChatDetailPage({ params }: Props) {
               <summary className="cursor-pointer list-none text-[var(--wa-link)] marker:content-none [&::-webkit-details-marker]:hidden hover:underline">
                 ¿Qué implica el escalado?
               </summary>
-              <p className="mt-1.5 max-w-md rounded-md border border-white/[0.06] bg-black/40 p-2 text-[11px] leading-relaxed text-[var(--wa-text-muted)]">
+              <p className="mt-1.5 max-w-md rounded-md border border-[var(--wa-border)] bg-[var(--wa-panel-hover)] p-2 text-[11px] leading-relaxed text-[var(--wa-text-muted)]">
                 El cliente sigue en WhatsApp con el último mensaje del flujo. Aquí ves{" "}
                 <strong className="text-[var(--wa-text)]">handed_off</strong>
                 {data.pending_handoff ? (
@@ -201,89 +219,16 @@ export default async function ChatDetailPage({ params }: Props) {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="wa-chat-canvas wa-scroll min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 pb-4">
-            {data.messages.length === 0 ? (
-              <p className="py-12 text-center text-sm text-[var(--wa-text-muted)]">Sin mensajes aún.</p>
-            ) : (
-              data.messages.map((m) => {
-                const inbound = m.direction === "inbound";
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex w-full ${inbound ? "justify-start" : "justify-end"}`}
-                  >
-                    <div
-                      className={[
-                        "relative max-w-[min(88%,30rem)] rounded-2xl px-3.5 py-2.5 shadow-xl sm:px-4 sm:py-3",
-                        inbound
-                          ? "rounded-tl-md bg-[var(--wa-bubble-in)] text-[var(--wa-text)] ring-1 ring-white/[0.07]"
-                          : "rounded-tr-md bg-gradient-to-br from-[#005c4b] to-[#004a3c] text-[var(--wa-text)] ring-1 ring-black/25",
-                      ].join(" ")}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-3">
-                        <span
-                          className={
-                            inbound
-                              ? "text-[10px] font-bold uppercase tracking-wider text-[var(--wa-accent-soft)]"
-                              : "text-[10px] font-bold uppercase tracking-wider text-white/65"
-                          }
-                        >
-                          {inbound ? "Cliente" : "Agente"}
-                        </span>
-                        <time
-                          className={
-                            inbound
-                              ? "text-[10px] tabular-nums text-[var(--wa-text-muted)]"
-                              : "text-[10px] tabular-nums text-white/55"
-                          }
-                          dateTime={m.created_at}
-                        >
-                          {new Date(m.created_at).toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
-                      </div>
-                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed [word-break:break-word]">
-                        {m.body}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            <div className="flex flex-col items-end gap-2 px-0.5 pt-1">
-              {llmBad ? (
-                <div className="max-w-[min(88%,30rem)] rounded-xl border border-red-500/35 bg-red-950/45 px-3 py-2.5 text-left text-[12px] leading-snug text-red-50/95">
-                  <p className="font-semibold text-red-100">El asistente automático tuvo un problema</p>
-                  <p className="mt-1 text-[11px] text-red-100/85">
-                    Suele deberse a clave sin saldo, modelo incorrecto o límites de la API (OpenAI / Gemini). Puedes
-                    seguir atendiendo por WhatsApp como humano.
-                  </p>
-                  {data.last_agent_llm_error ? (
-                    <p className="mt-2 font-mono text-[10px] leading-snug text-red-200/80 [word-break:break-word]">
-                      {data.last_agent_llm_error.length > 600
-                        ? `${data.last_agent_llm_error.slice(0, 600)}…`
-                        : data.last_agent_llm_error}
-                    </p>
-                  ) : null}
-                  <p className="mt-2">
-                    <Link href="/configuracion" className="font-medium text-sky-300 underline underline-offset-2">
-                      Abrir Ajustes (Motor de IA)
-                    </Link>
-                  </p>
-                </div>
-              ) : (
-                <p className="rounded-lg border border-emerald-500/15 bg-emerald-950/20 px-2 py-1 text-[10px] text-emerald-200/70">
-                  Última respuesta del modelo: <span className="font-mono text-emerald-100/90">ok</span>
-                </p>
-              )}
-            </div>
+            <ChatMessageThread
+              messages={data.messages}
+              llmBad={llmBad}
+              lastAgentLlmError={data.last_agent_llm_error}
+            />
           </div>
         </div>
 
         {data.lead ? (
-          <details className="shrink-0 border-t border-white/[0.06] bg-black/25">
+          <details className="shrink-0 border-t border-[var(--wa-strip-border)] bg-[var(--wa-strip-bg)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-left marker:content-none [&::-webkit-details-marker]:hidden sm:px-4">
               <span className="flex items-center gap-2 text-[12px] font-medium text-[var(--wa-text)]">
                 <span className="w-4 text-[var(--wa-text-muted)]">›</span>
@@ -291,7 +236,7 @@ export default async function ChatDetailPage({ params }: Props) {
               </span>
               <span className="text-[10px] text-[var(--wa-text-muted)]">Email, teléfono, CRM</span>
             </summary>
-            <div className="border-t border-white/[0.04] px-3 pb-3 pt-2 sm:px-4">
+            <div className="border-t border-[var(--wa-border)] px-3 pb-3 pt-2 sm:px-4">
               <dl className="mx-auto grid max-w-2xl grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
                 <div>
                   <dt className="text-[10px] uppercase text-[var(--wa-text-muted)]">Nombre</dt>

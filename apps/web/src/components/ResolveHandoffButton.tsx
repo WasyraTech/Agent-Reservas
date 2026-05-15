@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { IconCheckCircle } from "@/components/panel-icons";
+
 export function ResolveHandoffButton({
   conversationId,
   hasPendingHandoff,
@@ -41,11 +43,12 @@ export function ResolveHandoffButton({
         type="button"
         onClick={() => void onResolve()}
         disabled={loading}
-        className="rounded-full border border-emerald-500/40 bg-emerald-950/50 px-3 py-1 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-900/60 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-full border border-[#b9e6c9] bg-[#e7fce3] px-3 py-1.5 text-[11px] font-semibold text-[#008069] shadow-sm transition hover:bg-[#dcf8c6] disabled:opacity-50"
       >
+        <IconCheckCircle className="h-3.5 w-3.5 shrink-0" />
         {loading ? "…" : "Marcar resuelto"}
       </button>
-      {msg ? <p className="max-w-[12rem] text-right text-[10px] text-red-200">{msg}</p> : null}
+      {msg ? <p className="max-w-[12rem] text-right text-[10px] text-[#ea0038]">{msg}</p> : null}
     </div>
   );
 }
